@@ -1,0 +1,4462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Computer Engineering - Fingerprint Attendance System</title>
+    
+    <!-- External Libraries -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- IMPORTANT: Firebase SDKs must be in correct order -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+    
+<style>
+    /* ==================== CSS RESET & VARIABLES ==================== */
+    :root {
+        --primary: #4A6FA5;
+        --secondary: #166088;
+        --success: #2ecc71;
+        --danger: #e74c3c;
+        --warning: #f39c12;
+        --info: #3498db;
+        --light: #f8f9fa;
+        --dark: #343a40;
+        --gray: #6c757d;
+        --border: #dee2e6;
+        --shadow-sm: 0 2px 10px rgba(0,0,0,0.05);
+        --shadow-md: 0 5px 20px rgba(0,0,0,0.1);
+        --shadow-lg: 0 10px 30px rgba(0,0,0,0.15);
+        --radius: 12px;
+    }
+    
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    
+    body {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: #333;
+        line-height: 1.6;
+        min-height: 100vh;
+    }
+    
+    /* ==================== LOADING SCREEN ==================== */
+    #loadingScreen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, var(--primary), var(--secondary));
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+        animation: fadeIn 0.5s ease;
+    }
+    
+    .loader {
+        text-align: center;
+        color: white;
+    }
+    
+    .spinner {
+        width: 60px;
+        height: 60px;
+        border: 4px solid rgba(255,255,255,0.3);
+        border-radius: 50%;
+        border-top-color: white;
+        animation: spin 1s ease-in-out infinite;
+        margin: 0 auto 20px;
+    }
+    
+    /* ==================== DASHBOARD LAYOUT ==================== */
+    #dashboard {
+        display: none;
+        min-height: 100vh;
+        background: #f5f7fa;
+    }
+    
+    .header {
+        background: linear-gradient(135deg, var(--dark), #2c3e50);
+        padding: 15px 30px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        box-shadow: var(--shadow-md);
+        position: sticky;
+        top: 0;
+        z-index: 100;
+    }
+    
+    .nav {
+        display: flex;
+        background: white;
+        overflow-x: auto;
+        padding: 0 20px;
+        box-shadow: var(--shadow-sm);
+        position: sticky;
+        top: 70px;
+        z-index: 99;
+    }
+    
+    .nav-btn {
+        padding: 15px 25px;
+        background: none;
+        border: none;
+        color: var(--dark);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        border-bottom: 3px solid transparent;
+        white-space: nowrap;
+        font-size: 14px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+    
+    .nav-btn:hover {
+        background: rgba(74, 111, 165, 0.05);
+    }
+    
+    .nav-btn.active {
+        border-bottom-color: var(--primary);
+        color: var(--primary);
+        font-weight: 600;
+    }
+    
+    .main-content {
+        padding: 30px;
+        animation: fadeIn 0.3s ease;
+    }
+    
+    /* ==================== COMPONENTS ==================== */
+    .section {
+        display: none;
+    }
+    
+    .section.active {
+        display: block;
+    }
+    
+    .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+    
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+        margin-bottom: 30px;
+    }
+    
+    .stat-card {
+        background: white;
+        padding: 25px;
+        border-radius: var(--radius);
+        box-shadow: var(--shadow-md);
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: var(--shadow-lg);
+    }
+    
+    .stat-icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 10px;
+        background: var(--primary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        color: white;
+    }
+    
+    .stat-info {
+        flex: 1;
+    }
+    
+    .stat-info h3 {
+        font-size: 14px;
+        color: var(--gray);
+        margin-bottom: 5px;
+    }
+    
+    .stat-number {
+        font-size: 32px;
+        font-weight: bold;
+        color: var(--dark);
+    }
+    
+    .table-container {
+        background: white;
+        border-radius: var(--radius);
+        box-shadow: var(--shadow-md);
+        overflow: hidden;
+        margin-bottom: 20px;
+        position: relative;
+    }
+    
+    .btn {
+        padding: 12px 24px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        font-size: 14px;
+        min-height: 44px;
+    }
+    
+    .btn-primary {
+        background: linear-gradient(135deg, var(--primary), var(--secondary));
+        color: white;
+    }
+    
+    .btn-success {
+        background: linear-gradient(135deg, var(--success), #27ae60);
+        color: white;
+    }
+    
+    .btn-danger {
+        background: linear-gradient(135deg, var(--danger), #c0392b);
+        color: white;
+    }
+    
+    .btn-warning {
+        background: linear-gradient(135deg, var(--warning), #e67e22);
+        color: white;
+    }
+    
+    .btn-info {
+        background: linear-gradient(135deg, var(--info), #2980b9);
+        color: white;
+    }
+    
+    .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
+        opacity: 0.9;
+    }
+    
+    .btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+    }
+    
+    /* ==================== STATUS BADGES ==================== */
+    .status-badge {
+        padding: 6px 16px;
+        border-radius: 20px;
+        font-size: 13px;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        white-space: nowrap;
+    }
+    
+    .status-badge.online {
+        background: rgba(46, 204, 113, 0.15);
+        color: var(--success);
+        border: 2px solid rgba(46, 204, 113, 0.3);
+    }
+    
+    .status-badge.offline {
+        background: rgba(231, 76, 60, 0.15);
+        color: var(--danger);
+        border: 2px solid rgba(231, 76, 60, 0.3);
+    }
+    
+    .status-badge.processing {
+        background: rgba(243, 156, 18, 0.15);
+        color: var(--warning);
+        border: 2px solid rgba(243, 156, 18, 0.3);
+    }
+    
+    /* ==================== ALERTS & NOTIFICATIONS ==================== */
+    #alertContainer {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 9999;
+        max-width: 400px;
+    }
+    
+    #notificationContainer {
+        position: fixed;
+        top: 80px;
+        right: 20px;
+        z-index: 9998;
+        max-width: 400px;
+    }
+    
+    .alert {
+        padding: 15px 20px;
+        border-radius: 10px;
+        margin-bottom: 10px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        animation: slideIn 0.3s ease;
+        border-left: 4px solid;
+        background: white;
+        box-shadow: var(--shadow-md);
+    }
+    
+    .alert.success {
+        background: rgba(46, 204, 113, 0.1);
+        color: var(--success);
+        border-left-color: var(--success);
+    }
+    
+    .alert.error {
+        background: rgba(231, 76, 60, 0.1);
+        color: var(--danger);
+        border-left-color: var(--danger);
+    }
+    
+    .alert.warning {
+        background: rgba(243, 156, 18, 0.1);
+        color: var(--warning);
+        border-left-color: var(--warning);
+    }
+    
+    .alert.info {
+        background: rgba(52, 152, 219, 0.1);
+        color: var(--info);
+        border-left-color: var(--info);
+    }
+    
+    .notification {
+        background: white;
+        border-left: 4px solid var(--info);
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 10px;
+        box-shadow: var(--shadow-md);
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        animation: slideIn 0.3s ease;
+    }
+    
+    /* ==================== TABLE STYLES ==================== */
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    .data-table th {
+        background: var(--dark);
+        color: white;
+        padding: 15px;
+        text-align: left;
+        font-weight: 500;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+    
+    .data-table td {
+        padding: 15px;
+        border-bottom: 1px solid var(--border);
+        position: relative;
+    }
+    
+    .data-table tbody tr:hover {
+        background: rgba(74, 111, 165, 0.05);
+    }
+    
+    /* ==================== FORM STYLES ==================== */
+    .form-group {
+        margin-bottom: 20px;
+    }
+    
+    .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 600;
+        color: var(--dark);
+    }
+    
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+        width: 100%;
+        padding: 12px 15px;
+        border: 2px solid var(--border);
+        border-radius: 8px;
+        font-size: 16px;
+        transition: border-color 0.3s;
+    }
+    
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(74, 111, 165, 0.1);
+    }
+    
+    .search-box {
+        position: relative;
+        flex: 1;
+        max-width: 300px;
+    }
+    
+    .search-box i {
+        position: absolute;
+        left: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--gray);
+    }
+    
+    .search-box input {
+        width: 100%;
+        padding: 10px 15px 10px 40px;
+        border: 2px solid var(--border);
+        border-radius: 8px;
+        font-size: 16px;
+    }
+    
+    /* ==================== DROPDOWN MENUS ==================== */
+    .action-cell {
+        position: relative;
+        display: flex;
+        gap: 5px;
+    }
+    
+    .icon-btn {
+        width: 35px;
+        height: 35px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(74, 111, 165, 0.1);
+        color: var(--primary);
+        transition: all 0.2s ease;
+        z-index: 20;
+        position: relative;
+    }
+    
+    .icon-btn.delete {
+        background: rgba(231, 76, 60, 0.1);
+        color: var(--danger);
+    }
+    
+    .icon-btn:hover {
+        transform: scale(1.1);
+    }
+    
+    /* FIXED: Dropdown menu positioned outside table container */
+    .dropdown-menu {
+        position: fixed !important; /* Changed from absolute to fixed */
+        background: white;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        box-shadow: var(--shadow-lg);
+        z-index: 1001;
+        min-width: 200px;
+        animation: slideUp 0.2s ease;
+        display: none;
+        right: auto;
+        left: 0;
+        top: 0;
+        margin: 0;
+    }
+    
+    .dropdown-item {
+        width: 100%;
+        text-align: left;
+        padding: 12px 15px;
+        background: none;
+        border: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        transition: background 0.2s;
+        font-size: 14px;
+        white-space: nowrap;
+    }
+    
+    .dropdown-item:hover {
+        background: var(--light);
+    }
+    
+    /* Dropdown backdrop for better UX */
+    .dropdown-backdrop {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+        display: none;
+    }
+    
+    /* ==================== LIVE FEED ==================== */
+    .live-feed {
+        background: white;
+        border-radius: 15px;
+        box-shadow: var(--shadow-md);
+        overflow: hidden;
+    }
+    
+    .feed-header {
+        padding: 20px;
+        background: var(--dark);
+        color: white;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .feed-content {
+        max-height: 400px;
+        overflow-y: auto;
+        padding: 10px;
+    }
+    
+    .feed-item {
+        padding: 15px 20px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        animation: slideIn 0.3s ease;
+    }
+    
+    .feed-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 18px;
+    }
+    
+    /* ==================== ARCHITECTURE INFO ==================== */
+    .architecture-info {
+        background: linear-gradient(135deg, rgba(74, 111, 165, 0.1), rgba(22, 96, 136, 0.1));
+        border: 2px solid var(--primary);
+        border-radius: var(--radius);
+        padding: 20px;
+        margin: 30px 0;
+    }
+    
+    .architecture-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 15px;
+        margin-top: 15px;
+    }
+    
+    .architecture-item {
+        background: white;
+        padding: 15px;
+        border-radius: 8px;
+        border-left: 4px solid var(--primary);
+    }
+    
+    /* ==================== CHARTS ==================== */
+    .chart-container {
+        background: white;
+        padding: 20px;
+        border-radius: var(--radius);
+        box-shadow: var(--shadow-md);
+        margin-bottom: 30px;
+    }
+    
+    /* ==================== FILTERS ==================== */
+    .filter-container {
+        background: white;
+        padding: 20px;
+        border-radius: var(--radius);
+        box-shadow: var(--shadow-md);
+        margin-bottom: 20px;
+        display: flex;
+        gap: 15px;
+        flex-wrap: wrap;
+        align-items: flex-end;
+    }
+    
+    /* ==================== ANIMATIONS ==================== */
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    
+    @keyframes slideUp {
+        from { transform: translateY(20px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+    
+    @keyframes slideIn {
+        from { transform: translateX(100%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+    }
+    
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+    
+    @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+        20%, 40%, 60%, 80% { transform: translateX(5px); }
+    }
+    
+    /* ==================== RESPONSIVE DESIGN ==================== */
+    @media (max-width: 768px) {
+        .header {
+            flex-direction: column;
+            gap: 15px;
+            padding: 15px;
+        }
+        
+        .nav {
+            padding: 0 10px;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            top: 110px;
+        }
+        
+        .main-content {
+            padding: 15px;
+        }
+        
+        .stat-card {
+            padding: 20px;
+            flex-direction: column;
+            text-align: center;
+        }
+        
+        .section-header {
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .action-buttons {
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        .data-table {
+            display: block;
+            overflow-x: auto;
+        }
+        
+        /* Responsive table adjustments */
+        .data-table th,
+        .data-table td {
+            padding: 10px 8px;
+            font-size: 13px;
+        }
+        
+        .action-cell {
+            gap: 3px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        .icon-btn {
+            width: 30px;
+            height: 30px;
+            font-size: 12px;
+        }
+        
+        /* Mobile dropdown */
+        .dropdown-menu {
+            width: 90%;
+            max-width: 300px;
+            left: 50% !important;
+            transform: translateX(-50%);
+            top: 50% !important;
+            transform: translateX(-50%) translateY(-50%);
+        }
+        
+        .btn {
+            padding: 10px 15px;
+            font-size: 13px;
+            min-height: 40px;
+        }
+        
+        .filter-container {
+            flex-direction: column;
+        }
+        
+        .search-box {
+            max-width: 100%;
+        }
+        
+        /* Status badges on mobile */
+        .status-badge {
+            padding: 4px 10px;
+            font-size: 11px;
+        }
+    }
+    
+    @media (max-width: 480px) {
+        .login-box {
+            padding: 30px 20px;
+        }
+        
+        .main-content {
+            padding: 10px;
+        }
+        
+        .stats-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .data-table {
+            font-size: 12px;
+        }
+        
+        .data-table th,
+        .data-table td {
+            padding: 8px 5px;
+        }
+        
+        /* Even smaller action buttons on very small screens */
+        .action-cell {
+            gap: 2px;
+        }
+        
+        .icon-btn {
+            width: 28px;
+            height: 28px;
+            font-size: 11px;
+        }
+        
+        .dropdown-menu {
+            width: 95%;
+            max-width: 280px;
+        }
+        
+        .dropdown-item {
+            padding: 10px 12px;
+            font-size: 13px;
+        }
+    }
+    
+    /* ==================== UTILITY CLASSES ==================== */
+    .flex-center {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .flex-between {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    
+    .text-center {
+        text-align: center;
+    }
+    
+    .mt-20 { margin-top: 20px; }
+    .mt-30 { margin-top: 30px; }
+    .mb-20 { margin-bottom: 20px; }
+    .mb-30 { margin-bottom: 30px; }
+    .ml-10 { margin-left: 10px; }
+    .mr-10 { margin-right: 10px; }
+    
+    /* ==================== MODAL STYLES ==================== */
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.5);
+        z-index: 1000;
+        display: none;
+        justify-content: center;
+        align-items: center;
+        animation: fadeIn 0.3s ease;
+    }
+    
+    .modal-content {
+        background: white;
+        border-radius: var(--radius);
+        width: 90%;
+        max-width: 500px;
+        max-height: 90vh;
+        overflow-y: auto;
+        animation: slideUp 0.3s ease;
+        padding: 30px;
+    }
+    
+    /* ==================== SETTINGS PANEL ==================== */
+    .settings-panel {
+        background: white;
+        padding: 25px;
+        border-radius: var(--radius);
+        box-shadow: var(--shadow-md);
+        margin-bottom: 20px;
+    }
+    
+    .settings-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 15px 0;
+        border-bottom: 1px solid var(--border);
+    }
+    
+    .settings-item:last-child {
+        border-bottom: none;
+    }
+    
+    .switch {
+        position: relative;
+        display: inline-block;
+        width: 60px;
+        height: 34px;
+    }
+    
+    .switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+    
+    .slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #ccc;
+        transition: .4s;
+        border-radius: 34px;
+    }
+    
+    .slider:before {
+        position: absolute;
+        content: "";
+        height: 26px;
+        width: 26px;
+        left: 4px;
+        bottom: 4px;
+        background-color: white;
+        transition: .4s;
+        border-radius: 50%;
+    }
+    
+    input:checked + .slider {
+        background-color: var(--success);
+    }
+    
+    input:checked + .slider:before {
+        transform: translateX(26px);
+    }
+</style>
+</head>
+<body>
+    <!-- ==================== LOADING SCREEN ==================== -->
+    <div id="loadingScreen">
+        <div class="loader">
+            <div class="spinner"></div>
+            <h2>CED System</h2>
+            <p>Loading dashboard...</p>
+        </div>
+    </div>
+
+    <!-- ==================== MAIN DASHBOARD ==================== -->
+    <div id="dashboard">
+        <!-- Header -->
+        <div class="header">
+            <div class="logo flex-center" style="gap: 15px;">
+                <i class="fas fa-fingerprint" style="font-size: 24px; color: white;"></i>
+                <h1 style="color: white; font-size: 20px;">CED System</h1>
+            </div>
+            <div class="header-info flex-center" style="gap: 20px; color: white;">
+                <div>
+                    <span id="currentTime">--:--:--</span>
+                    <span id="currentDate"> - 2025-12-19</span>
+                </div>
+                <div id="offlineQueueBadge">
+                    <span class="status-badge offline">
+                        <i class="fas fa-wifi-slash"></i> Offline
+                    </span>
+                </div>
+                <div id="userMenu" class="flex-center" style="gap: 10px; cursor: pointer;" onclick="logout()">
+                    <i class="fas fa-user-circle" style="font-size: 20px;"></i>
+                    <span id="userName">Administrator</span>
+                    <i class="fas fa-sign-out-alt"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation -->
+        <div class="nav">
+            <button class="nav-btn active" data-section="dashboard">
+                <i class="fas fa-tachometer-alt"></i> Dashboard
+            </button>
+            <button class="nav-btn" data-section="students">
+                <i class="fas fa-user-graduate"></i> Students
+            </button>
+            <button class="nav-btn" data-section="enroll">
+                <i class="fas fa-fingerprint"></i> Enroll Student
+            </button>
+            <button class="nav-btn" data-section="attendance">
+                <i class="fas fa-calendar-check"></i> Attendance
+            </button>
+            <button class="nav-btn" data-section="reports">
+                <i class="fas fa-chart-bar"></i> Reports
+            </button>
+            <button class="nav-btn" data-section="logs">
+                <i class="fas fa-history"></i> Transaction Logs
+            </button>
+            <button class="nav-btn" data-section="admin">
+                <i class="fas fa-cog"></i> System Admin
+            </button>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Dashboard Section -->
+            <div id="dashboardSection" class="section active">
+                <div class="section-header">
+                    <h2><i class="fas fa-tachometer-alt"></i> System Dashboard</h2>
+                    <div class="action-buttons flex-center" style="gap: 10px;">
+                        <button class="btn btn-primary" onclick="refreshDashboard()">
+                            <i class="fas fa-sync-alt"></i> Refresh
+                        </button>
+                        <button class="btn btn-info" onclick="showSystemStatus()">
+                            <i class="fas fa-info-circle"></i> System Status
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Stats Cards -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: var(--primary);">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3>Total Students</h3>
+                            <div class="stat-number" id="totalStudents">0</div>
+                            <div style="font-size: 12px; color: var(--gray); margin-top: 5px;">Enrolled in system</div>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: var(--success);">
+                            <i class="fas fa-user-check"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3>Present Today</h3>
+                            <div class="stat-number" id="presentToday">0</div>
+                            <div style="font-size: 12px; color: var(--gray); margin-top: 5px;">Checked in today</div>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: var(--danger);">
+                            <i class="fas fa-user-times"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3>Absent Today</h3>
+                            <div class="stat-number" id="absentToday">0</div>
+                            <div style="font-size: 12px; color: var(--gray); margin-top: 5px;">Not checked in</div>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: var(--info);">
+                            <i class="fas fa-history"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3>Today's Logs</h3>
+                            <div class="stat-number" id="logsToday">0</div>
+                            <div style="font-size: 12px; color: var(--gray); margin-top: 5px;">Transactions today</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts Row -->
+                <div class="stats-grid">
+                    <div class="chart-container">
+                        <h3><i class="fas fa-chart-line"></i> Weekly Attendance</h3>
+                        <canvas id="weeklyChart" height="150"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <h3><i class="fas fa-chart-pie"></i> Department Distribution</h3>
+                        <canvas id="departmentChart" height="150"></canvas>
+                    </div>
+                </div>
+
+                <!-- System Architecture Info -->
+                <div class="architecture-info">
+                    <h3><i class="fas fa-project-diagram"></i> System Architecture</h3>
+                    <p><strong>How the System Works:</strong></p>
+                    <div class="architecture-grid">
+                        <div class="architecture-item">
+                            <h4><i class="fas fa-desktop"></i> Web Dashboard</h4>
+                            <p>This interface sends commands and receives data from Firebase</p>
+                        </div>
+                        <div class="architecture-item">
+                            <h4><i class="fas fa-database"></i> Firebase</h4>
+                            <p>Real-time database that syncs between web and Conductor device</p>
+                        </div>
+                        <div class="architecture-item">
+                            <h4><i class="fas fa-microchip"></i> Conductor Device</h4>
+                            <p>Listens for commands, processes fingerprints, and sends logs</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Live Feed -->
+                <div class="live-feed">
+                    <div class="feed-header">
+                        <h3><i class="fas fa-broadcast-tower"></i> Live Transaction Feed</h3>
+                        <button class="btn btn-primary" id="liveFeedBtn" onclick="toggleLiveFeed()">
+                            <i class="fas fa-play"></i> Start Feed
+                        </button>
+                    </div>
+                    <div class="feed-content" id="liveFeed">
+                        <div class="feed-item">
+                            <div class="feed-details" style="flex: 1;">
+                                <span class="feed-name" style="font-weight: bold; display: block;">No live feed yet</span>
+                                <span class="feed-time" style="font-size: 14px; color: var(--gray); display: block;">Start feed to see real-time transactions</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Students Section -->
+            <div id="studentsSection" class="section">
+                <div class="section-header">
+                    <h2><i class="fas fa-user-graduate"></i> Student Management</h2>
+                    <div class="action-buttons flex-center" style="gap: 10px;">
+                        <div class="search-box">
+                            <i class="fas fa-search"></i>
+                            <input type="text" id="studentSearch" placeholder="Search students...">
+                        </div>
+                        <button class="btn btn-primary" onclick="showAddStudentModal()">
+                            <i class="fas fa-plus"></i> Add Student
+                        </button>
+                        <button class="btn btn-info" onclick="exportStudents()">
+                            <i class="fas fa-download"></i> Export
+                        </button>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Student ID</th>
+                                <th>Name</th>
+                                <th>Department</th>
+                                <th>Matric Number</th> <!-- Changed from Email -->
+                                <th>Phone</th>
+                                <th>Fingerprint ID</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="studentsTable">
+                            <tr>
+                                <td colspan="8" style="text-align: center; padding: 40px;">
+                                    <i class="fas fa-spinner fa-spin"></i> Loading students...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Enroll Section -->
+            <div id="enrollSection" class="section">
+                <!-- Enrollment content dynamically loaded -->
+            </div>
+
+            <!-- Attendance Section -->
+            <div id="attendanceSection" class="section">
+                <!-- Attendance content dynamically loaded -->
+            </div>
+
+            <!-- Reports Section -->
+            <div id="reportsSection" class="section">
+                <!-- Reports content dynamically loaded -->
+            </div>
+
+            <!-- Logs Section -->
+            <div id="logsSection" class="section">
+                <!-- Logs content dynamically loaded -->
+            </div>
+
+            <!-- Admin Section -->
+            <div id="adminSection" class="section">
+                <!-- Admin content dynamically loaded -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Alert and Notification Containers -->
+    <div id="alertContainer"></div>
+    <div id="notificationContainer"></div>
+
+    <!-- Add Student Modal -->
+    <div id="addStudentModal" class="modal-overlay">
+        <div class="modal-content">
+            <h2 style="margin-bottom: 20px;"><i class="fas fa-user-plus"></i> Add New Student</h2>
+            <form id="addStudentForm">
+                <div class="form-group">
+                    <label for="newStudentName">Full Name *</label>
+                    <input type="text" id="newStudentName" placeholder="Enter full name" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="newStudentMatric">Matric Number *</label>
+                    <input type="text" id="newStudentMatric" placeholder="Enter matric number" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="newStudentPhone">Phone Number</label>
+                    <input type="tel" id="newStudentPhone" placeholder="+1234567890">
+                </div>
+                
+                <div class="form-group">
+                    <label for="newStudentDept">Department</label>
+                    <select id="newStudentDept">
+                        <option value="Computer Engineering">Computer Engineering</option>
+                        <option value="Electrical Engineering">Electrical Engineering</option>
+                        <option value="Mechanical Engineering">Mechanical Engineering</option>
+                        <option value="Civil Engineering">Civil Engineering</option>
+                        <option value="Electronics Engineering">Electronics Engineering</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="newStudentYear">Year Level</label>
+                    <select id="newStudentYear">
+                        <option value="1st Year">1st Year</option>
+                        <option value="2nd Year">2nd Year</option>
+                        <option value="3rd Year">3rd Year</option>
+                        <option value="4th Year">4th Year</option>
+                        <option value="5th Year">5th Year</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>Student ID</label>
+                    <input type="text" id="newStudentId" readonly style="background: #f5f5f5; font-weight: bold;">
+                </div>
+                
+                <div style="display: flex; gap: 15px; margin-top: 30px;">
+                    <button type="button" class="btn" onclick="closeModal('addStudentModal')" style="flex: 1;">Cancel</button>
+                    <button type="submit" class="btn btn-success" style="flex: 1;">Save Student</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- System Status Modal -->
+    <div id="systemStatusModal" class="modal-overlay">
+        <div class="modal-content">
+            <h2 style="margin-bottom: 20px;"><i class="fas fa-info-circle"></i> System Status</h2>
+            <div id="systemStatusContent">
+                <p>Loading system status...</p>
+            </div>
+            <div style="margin-top: 30px;">
+                <button class="btn btn-primary" onclick="closeModal('systemStatusModal')" style="width: 100%;">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==================== FIREBASE CONFIGURATION ====================
+        const firebaseConfig = {
+            apiKey: "AIzaSyCE7438DirFUQdCBMA4AUXXO_dXCQlWTNQ",
+            authDomain: "fingerprint-attendance-d5a86.firebaseapp.com",
+            databaseURL: "https://fingerprint-attendance-d5a86-default-rtdb.firebaseio.com/",
+            projectId: "fingerprint-attendance-d5a86",
+            storageBucket: "fingerprint-attendance-d5a86.appspot.com",
+            messagingSenderId: "991752515512",
+            appId: "1:991752515512:web:e2938dcd024749512a294d"
+        };
+
+        // Initialize Firebase
+        const app = firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const auth = firebase.auth();
+        
+        // ==================== GLOBAL VARIABLES ====================
+        let currentUser = null;
+        let liveFeedActive = false;
+        let liveLogsListener = null;
+        let deviceStatusListener = null;
+        let firebaseConnectionListener = null;
+        let offlineQueue = JSON.parse(localStorage.getItem('offline_queue') || '[]');
+        let isOnline = false;
+        let syncInProgress = false;
+        let weeklyChart = null;
+        let departmentChart = null;
+
+        // ==================== SYSTEM INITIALIZATION ====================
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 CED System Initializing...');
+            
+            // Check authentication
+            checkAuthentication();
+            
+            // Initialize real-time clock
+            updateTime();
+            setInterval(updateTime, 1000);
+            
+            console.log('✅ System initialization complete');
+        });
+        
+        function checkAuthentication() {
+            const savedUser = localStorage.getItem('attendance_user');
+            
+            if (savedUser) {
+                try {
+                    currentUser = JSON.parse(savedUser);
+                    
+                    // Verify with Firebase
+                    auth.onAuthStateChanged((user) => {
+                        if (user) {
+                            // User is authenticated
+                            currentUser.uid = user.uid;
+                            showDashboard();
+                        } else {
+                            // User not authenticated, redirect to login
+                            redirectToLogin();
+                        }
+                    });
+                } catch (error) {
+                    console.error('Error parsing saved user:', error);
+                    redirectToLogin();
+                }
+            } else {
+                redirectToLogin();
+            }
+        }
+        
+        function redirectToLogin() {
+            localStorage.removeItem('attendance_user');
+            window.location.href = 'login.html';
+        }
+        
+        function showDashboard() {
+            setTimeout(() => {
+                document.getElementById('loadingScreen').style.display = 'none';
+                document.getElementById('dashboard').style.display = 'block';
+                
+                document.getElementById('userName').textContent = currentUser.username;
+                
+                // Initialize dashboard components
+                initializeDashboard();
+            }, 500);
+        }
+        
+        function initializeDashboard() {
+            initializeFirebaseConnection();
+            
+            // Setup navigation
+            setupNavigation();
+            
+            // Setup search functionality
+            setupSearch();
+            
+            // Setup form submissions
+            setupForms();
+            
+            // Initialize offline queue system
+            initOfflineQueueSystem();
+            
+            // Load initial data
+            setTimeout(() => {
+                ensureDailyLogsFolder();
+                loadAllData();
+                generateNextStudentId();
+                generateNextFingerprintId();
+            }, 1000);
+            
+            // Auto-refresh data every 30 seconds
+            setInterval(() => {
+                if (currentUser) {
+                    refreshDashboardSilently();
+                }
+            }, 30000);
+        }
+        
+        // ==================== AUTHENTICATION ====================
+        function logout() {
+            if (confirm('Are you sure you want to logout?')) {
+                // Sign out from Firebase Auth
+                auth.signOut().then(() => {
+                    // Clear all listeners
+                    stopAllFirebaseListeners();
+                    
+                    // Reset all global variables
+                    currentUser = null;
+                    liveFeedActive = false;
+                    offlineQueue = [];
+                    isOnline = false;
+                    
+                    // Clear localStorage
+                    localStorage.removeItem('attendance_user');
+                    localStorage.removeItem('offline_queue');
+                    
+                    // Redirect to login
+                    redirectToLogin();
+                    
+                }).catch(error => {
+                    console.error('Logout error:', error);
+                    showAlert('Error during logout', 'error');
+                });
+            }
+        }
+        
+        // ==================== FIREBASE CONNECTION MANAGEMENT ====================
+        function initializeFirebaseConnection() {
+            const connectionRef = database.ref('.info/connected');
+            
+            if (firebaseConnectionListener) {
+                connectionRef.off('value', firebaseConnectionListener);
+            }
+            
+            firebaseConnectionListener = connectionRef.on('value', function(snapshot) {
+                const connected = snapshot.val();
+                isOnline = connected === true;
+                
+                updateOfflineQueueStatus();
+                
+                if (isOnline) {
+                    setupDeviceStatusListener();
+                    setupRealTimeNotifications();
+                    showAlert('Connected to Firebase database', 'success');
+                } else {
+                    showAlert('Working offline - Transactions will be queued', 'warning');
+                }
+            });
+        }
+        
+        function stopAllFirebaseListeners() {
+            try {
+                // Stop live feed
+                if (liveFeedActive) {
+                    stopLiveFeed();
+                }
+                
+                // Stop device status listener
+                if (deviceStatusListener) {
+                    const deviceRef = database.ref('devices/Conductor');
+                    deviceRef.off('value', deviceStatusListener);
+                    deviceStatusListener = null;
+                }
+                
+                // Stop connection listener
+                if (firebaseConnectionListener) {
+                    const connectionRef = database.ref('.info/connected');
+                    connectionRef.off('value', firebaseConnectionListener);
+                    firebaseConnectionListener = null;
+                }
+                
+                // Stop all Firebase listeners
+                database.ref().off();
+                
+                console.log('✅ All Firebase listeners stopped');
+                
+            } catch (error) {
+                console.error('Error stopping Firebase listeners:', error);
+            }
+        }
+        
+        // ==================== DEVICE STATUS MONITORING ====================
+        function setupDeviceStatusListener() {
+            const deviceRef = database.ref('devices/Conductor');
+            
+            if (deviceStatusListener) {
+                deviceRef.off('value', deviceStatusListener);
+            }
+            
+            deviceStatusListener = deviceRef.on('value', (snapshot) => {
+                if (snapshot.exists()) {
+                    const deviceData = snapshot.val();
+                    updateDeviceStatusDisplay(deviceData);
+                    updateEnrollmentSystemStatus(deviceData);
+                }
+            });
+        }
+        
+        function updateDeviceStatusDisplay(deviceData) {
+            const deviceStatusBadge = document.getElementById('deviceStatusBadge');
+            
+            if (deviceData && deviceData.lastHeartbeat) {
+                const lastUpdate = new Date();
+                const currentTime = lastUpdate.getTime();
+                const heartbeatTime = new Date(`${deviceData.date || '2025-12-26'}T${deviceData.lastHeartbeat}`).getTime();
+                const diff = currentTime - heartbeatTime;
+                
+                if (diff < 60000) {
+                    // Device is online
+                    if (deviceStatusBadge) {
+                        deviceStatusBadge.innerHTML = `<span class="status-badge online">Device Online</span>`;
+                    }
+                } else {
+                    // Device is offline
+                    if (deviceStatusBadge) {
+                        deviceStatusBadge.innerHTML = `<span class="status-badge offline">Device Offline</span>`;
+                    }
+                }
+            } else {
+                if (deviceStatusBadge) {
+                    deviceStatusBadge.innerHTML = `<span class="status-badge offline">Device Offline</span>`;
+                }
+            }
+        }
+        
+        function updateEnrollmentSystemStatus(deviceData) {
+            const enrollSection = document.getElementById('enrollSection');
+            if (!enrollSection) return;
+            
+            const deviceStatusElement = enrollSection.querySelector('#deviceStatusDisplay');
+            if (deviceStatusElement) {
+                if (deviceData && deviceData.lastHeartbeat) {
+                    const lastUpdate = new Date();
+                    const currentTime = lastUpdate.getTime();
+                    const heartbeatTime = new Date(`${deviceData.date || '2025-12-26'}T${deviceData.lastHeartbeat}`).getTime();
+                    const diff = currentTime - heartbeatTime;
+                    
+                    if (diff < 60000) {
+                        deviceStatusElement.innerHTML = `
+                            <span class="status-badge online">
+                                <i class="fas fa-wifi"></i> Online
+                            </span>
+                        `;
+                    } else {
+                        deviceStatusElement.innerHTML = `
+                            <span class="status-badge offline">
+                                <i class="fas fa-wifi-slash"></i> Offline
+                            </span>
+                        `;
+                    }
+                }
+            }
+            
+            // Update enrollment button status
+            if (deviceData) {
+                const enrollBtn = document.querySelector('#enrollForm button[type="submit"]');
+                if (enrollBtn) {
+                    const isOnline = deviceData.lastHeartbeat && 
+                                    (new Date() - new Date(`${deviceData.date || '2025-12-26'}T${deviceData.lastHeartbeat}`)) < 60000;
+                    
+                    const isReadyForEnrollment = isOnline && 
+                                                deviceData.enrollmentMode === false && 
+                                                deviceData.deletionMode === false;
+                    
+                    if (isReadyForEnrollment) {
+                        enrollBtn.disabled = false;
+                        enrollBtn.innerHTML = '<i class="fas fa-fingerprint"></i> Enroll Student';
+                        enrollBtn.className = 'btn btn-success';
+                    } else {
+                        enrollBtn.disabled = true;
+                        enrollBtn.innerHTML = '<i class="fas fa-ban"></i> Device Busy';
+                        enrollBtn.className = 'btn btn-danger';
+                    }
+                }
+            }
+        }
+        
+        function formatUptime(seconds) {
+            if (!seconds) return 'N/A';
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            return `${hours}h ${minutes}m`;
+        }
+        
+        // ==================== REAL-TIME NOTIFICATIONS ====================
+        function setupRealTimeNotifications() {
+            database.ref('enrollmentStatus').on('child_changed', (snapshot) => {
+                const status = snapshot.val();
+                if (status.status === 'completed') {
+                    showNotification('Enrollment Complete', 
+                        `${status.name || status.studentId} enrolled successfully!`, 
+                        'success');
+                } else if (status.status === 'failed') {
+                    showNotification('Enrollment Failed', 
+                        `Failed to enroll ${status.name || status.studentId}: ${status.message}`, 
+                        'error');
+                }
+            });
+            
+            database.ref('deletions').on('child_changed', (snapshot) => {
+                const deletion = snapshot.val();
+                if (deletion.status === 'completed') {
+                    showNotification('Deletion Complete', 
+                        `${deletion.studentId} removed successfully!`, 
+                        'success');
+                } else if (deletion.status === 'failed') {
+                    showNotification('Deletion Failed', 
+                        `Failed to delete ${deletion.studentId}: ${deletion.message}`, 
+                        'error');
+                }
+            });
+        }
+        
+        function showNotification(title, message, type) {
+            const container = document.getElementById('notificationContainer');
+            
+            const notification = document.createElement('div');
+            notification.className = `notification`;
+            
+            notification.innerHTML = `
+                <i class="fas fa-${type === 'success' ? 'check-circle' : 
+                                 type === 'error' ? 'exclamation-circle' : 'info-circle'}" 
+                   style="color: ${type === 'success' ? 'var(--success)' : type === 'error' ? 'var(--danger)' : 'var(--info)'}; font-size: 20px;"></i>
+                <div style="flex: 1;">
+                    <strong>${title}</strong>
+                    <p style="margin: 5px 0 0; font-size: 14px; color: var(--gray);">${message}</p>
+                </div>
+                <button onclick="this.parentElement.remove()" style="background: none; border: none; cursor: pointer; color: var(--gray); font-size: 18px;">&times;</button>
+            `;
+            
+            container.appendChild(notification);
+            
+            // Limit to 5 notifications
+            while (container.children.length > 5) {
+                container.removeChild(container.firstChild);
+            }
+            
+            setTimeout(() => {
+                if (notification.parentElement) {
+                    notification.remove();
+                }
+            }, 5000);
+        }
+        
+        // ==================== OFFLINE QUEUE SYSTEM ====================
+        function initOfflineQueueSystem() {
+            updateOfflineQueueStatus();
+            
+            setInterval(saveOfflineQueue, 10000);
+            
+            setInterval(() => {
+                if (isOnline && offlineQueue.length > 0 && !syncInProgress) {
+                    syncOfflineQueue();
+                }
+            }, 30000);
+        }
+        
+        function saveOfflineQueue() {
+            localStorage.setItem('offline_queue', JSON.stringify(offlineQueue));
+            updateOfflineQueueStatus();
+        }
+        
+        function addToOfflineQueue(transaction) {
+            const queueItem = {
+                id: 'offline_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+                transaction: transaction,
+                timestamp: new Date().toISOString(),
+                attempts: 0,
+                status: 'pending'
+            };
+            
+            offlineQueue.push(queueItem);
+            saveOfflineQueue();
+            
+            showAlert('Transaction queued (Offline Mode)', 'warning');
+            return queueItem.id;
+        }
+        
+        async function syncOfflineQueue() {
+            if (syncInProgress || offlineQueue.length === 0) return;
+            
+            syncInProgress = true;
+            
+            const failedItems = [];
+            
+            for (let i = 0; i < offlineQueue.length; i++) {
+                const item = offlineQueue[i];
+                
+                if (item.attempts >= 3) {
+                    failedItems.push(item);
+                    continue;
+                }
+                
+                try {
+                    const today = new Date().toISOString().split('T')[0];
+                    const logRef = database.ref(`logs/${today}`).push();
+                    
+                    await logRef.set({
+                        ...item.transaction,
+                        offlineId: item.id,
+                        syncedAt: new Date().toISOString(),
+                        syncStatus: 'synced'
+                    });
+                    
+                    item.status = 'synced';
+                    item.syncedAt = new Date().toISOString();
+                    
+                } catch (error) {
+                    item.attempts++;
+                    item.lastError = error.message;
+                    failedItems.push(item);
+                }
+                
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+            
+            offlineQueue = failedItems;
+            saveOfflineQueue();
+            syncInProgress = false;
+            
+            if (failedItems.length === 0) {
+                showAlert('All offline transactions synced', 'success');
+            }
+        }
+        
+        function updateOfflineQueueStatus() {
+            const queueBadge = document.getElementById('offlineQueueBadge');
+            if (!queueBadge) return;
+            
+            if (offlineQueue.length > 0) {
+                queueBadge.innerHTML = `
+                    <span class="status-badge ${isOnline ? 'online' : 'offline'}" 
+                          style="cursor: pointer;" 
+                          onclick="showOfflineQueueDetails()"
+                          title="Click to view offline transactions">
+                        <i class="fas fa-${isOnline ? 'sync' : 'wifi-slash'}"></i>
+                        ${offlineQueue.length} pending
+                    </span>
+                `;
+            } else {
+                queueBadge.innerHTML = `
+                    <span class="status-badge ${isOnline ? 'online' : 'offline'}">
+                        <i class="fas fa-wifi"></i> ${isOnline ? 'Online' : 'Offline'}
+                    </span>
+                `;
+            }
+        }
+        
+        // ==================== STUDENT MANAGEMENT ====================
+        async function loadStudents() {
+            try {
+                const studentsRef = database.ref('students');
+                const snapshot = await studentsRef.orderByChild('name').once('value');
+                const studentsTable = document.getElementById('studentsTable');
+                
+                studentsTable.innerHTML = '';
+                
+                if (!snapshot.exists()) {
+                    studentsTable.innerHTML = `
+                        <tr>
+                            <td colspan="8" style="text-align: center; padding: 40px;">
+                                <i class="fas fa-users-slash"></i> No students found
+                            </td>
+                        </tr>
+                    `;
+                    return;
+                }
+                
+                const students = snapshot.val();
+                const studentIds = Object.keys(students);
+                
+                studentIds.forEach((studentId, index) => {
+                    const student = students[studentId];
+                    const row = document.createElement('tr');
+                    
+                    let statusBadge = '';
+                    if (student.status === 'pending_enrollment') {
+                        statusBadge = '<span class="status-badge processing">Pending</span>';
+                    } else if (student.status === 'deleting') {
+                        statusBadge = '<span class="status-badge processing">Deleting...</span>';
+                    } else if (student.status === 'active') {
+                        statusBadge = '<span class="status-badge online">Active</span>';
+                    } else {
+                        statusBadge = '<span class="status-badge offline">Inactive</span>';
+                    }
+                    
+                    const dropdownId = `deleteMenu-${studentId.replace(/[.#$\[\]]/g, '_')}`;
+                    
+                    row.innerHTML = `
+                        <td>${studentId}</td>
+                        <td><strong>${student.name || 'Unknown'}</strong></td>
+                        <td>${student.department || 'N/A'}</td>
+                        <td>${student.matric || 'N/A'}</td>
+                        <td>${student.phone || 'N/A'}</td>
+                        <td>${student.fingerprintId || 'N/A'}</td>
+                        <td>${statusBadge}</td>
+                        <td>
+                            <div class="action-cell">
+                                <button class="icon-btn view" title="View Details" onclick="viewStudentDetails('${studentId}')">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <button class="icon-btn" title="Edit" onclick="editStudent('${studentId}')">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <div style="position: relative; display: inline-block;">
+                                    <button class="icon-btn delete" title="Delete Options" onclick="toggleDeleteMenu('${studentId}', event)">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                    <div id="${dropdownId}" class="dropdown-menu">
+                                        <button class="dropdown-item" onclick="deleteStudentFromDevice('${studentId}', ${student.fingerprintId || 'null'})">
+                                            <i class="fas fa-microchip"></i> Delete from Device & Database
+                                        </button>
+                                        <button class="dropdown-item" onclick="deleteStudentFromDatabase('${studentId}')">
+                                            <i class="fas fa-database"></i> Database Only
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                    `;
+                    studentsTable.appendChild(row);
+                });
+                
+            } catch (error) {
+                console.error('Error loading students:', error);
+                showAlert('Failed to load students', 'error');
+            }
+        }
+        
+        function toggleDeleteMenu(studentId, event) {
+            event.stopPropagation();
+            
+            const safeStudentId = studentId.replace(/[.#$\[\]]/g, '_');
+            const menu = document.getElementById(`deleteMenu-${safeStudentId}`);
+            const isVisible = menu.style.display === 'block';
+            
+            // Hide all other menus first
+            document.querySelectorAll('.dropdown-menu').forEach(m => {
+                m.style.display = 'none';
+            });
+            
+            // Remove backdrop if exists
+            const backdrop = document.getElementById('dropdownBackdrop');
+            if (backdrop) {
+                backdrop.remove();
+            }
+            
+            // Toggle this menu
+            if (!isVisible) {
+                // Get button position
+                const button = event.target.closest('.icon-btn.delete');
+                const buttonRect = button.getBoundingClientRect();
+                
+                // Add backdrop
+                const backdrop = document.createElement('div');
+                backdrop.id = 'dropdownBackdrop';
+                backdrop.className = 'dropdown-backdrop';
+                backdrop.style.display = 'block';
+                document.body.appendChild(backdrop);
+                
+                // Position dropdown near the button
+                menu.style.display = 'block';
+                menu.style.position = 'fixed';
+                
+                // Calculate position
+                const menuWidth = 200;
+                const menuHeight = 120; // Approximate height
+                
+                let left = buttonRect.left;
+                let top = buttonRect.bottom + 5;
+                
+                // Adjust if dropdown would go off screen
+                if (left + menuWidth > window.innerWidth) {
+                    left = window.innerWidth - menuWidth - 10;
+                }
+                
+                if (top + menuHeight > window.innerHeight) {
+                    // Not enough space below, open above the button
+                    top = buttonRect.top - menuHeight - 5;
+                }
+                
+                // Ensure minimum margins
+                left = Math.max(10, left);
+                top = Math.max(10, top);
+                
+                menu.style.left = left + 'px';
+                menu.style.top = top + 'px';
+                menu.style.zIndex = '1002';
+                
+                // Close menu when backdrop is clicked
+                backdrop.addEventListener('click', () => {
+                    menu.style.display = 'none';
+                    backdrop.remove();
+                });
+                
+                // Also close menu when clicking the menu items
+                menu.querySelectorAll('.dropdown-item').forEach(item => {
+                    item.addEventListener('click', () => {
+                        setTimeout(() => {
+                            menu.style.display = 'none';
+                            backdrop.remove();
+                        }, 100);
+                    });
+                });
+            } else {
+                menu.style.display = 'none';
+                const backdrop = document.getElementById('dropdownBackdrop');
+                if (backdrop) {
+                    backdrop.remove();
+                }
+            }
+        }
+        
+        async function deleteStudentFromDevice(studentId, fingerprintId) {
+            if (!confirm(`PERMANENTLY DELETE?\n\nStudent: ${studentId}\nFingerprint ID: ${fingerprintId}\n\n⚠️ This will delete fingerprint from both device and database.`)) {
+                return;
+            }
+            
+            try {
+                showAlert(`Starting deletion for ${studentId}...`, 'info');
+                
+                const safeStudentId = studentId.replace(/[.#$\[\]]/g, '_');
+                document.getElementById(`deleteMenu-${safeStudentId}`).style.display = 'none';
+                
+                const commandRef = database.ref('commands').push();
+                const commandId = commandRef.key;
+                
+                await commandRef.set({
+                    command: 'DELETE_FINGERPRINT',
+                    studentId: studentId,
+                    fingerprintId: fingerprintId,
+                    timestamp: new Date().toISOString(),
+                    requestedBy: currentUser.username,
+                    status: 'pending',
+                    action: 'PERMANENT_DELETE'
+                });
+                
+                await database.ref(`deletions/${studentId}`).set({
+                    studentId: studentId,
+                    fingerprintId: fingerprintId,
+                    commandId: commandId,
+                    status: 'pending_device',
+                    timestamp: new Date().toISOString(),
+                    message: 'Waiting for device response',
+                    initiatedBy: currentUser.username
+                });
+                
+                await database.ref(`students/${studentId}`).update({
+                    status: 'deleting',
+                    deletionRequested: new Date().toISOString(),
+                    deletionBy: currentUser.username
+                });
+                
+                monitorDeletionProgress(studentId, fingerprintId, commandId);
+                
+                showAlert(`Delete command sent to device`, 'success');
+                
+            } catch (error) {
+                console.error('Error deleting student:', error);
+                showAlert(`Failed to delete ${studentId}: ${error.message}`, 'error');
+            }
+        }
+        
+        async function deleteStudentFromDatabase(studentId) {
+            if (!confirm(`Remove ${studentId} from database only?\n\n⚠️ Fingerprint will remain on device!`)) {
+                return;
+            }
+            
+            try {
+                showAlert(`Removing ${studentId} from database...`, 'info');
+                
+                const safeStudentId = studentId.replace(/[.#$\[\]]/g, '_');
+                document.getElementById(`deleteMenu-${safeStudentId}`).style.display = 'none';
+                
+                await database.ref(`students/${studentId}`).remove();
+                
+                await logAudit('DELETE_DB_ONLY', { 
+                    studentId: studentId,
+                    reason: 'Database only deletion'
+                });
+                
+                showAlert(`${studentId} removed from database`, 'success');
+                loadStudents();
+                
+            } catch (error) {
+                console.error('Error deleting from database:', error);
+                showAlert(`Failed to remove ${studentId}: ${error.message}`, 'error');
+            }
+        }
+        
+        function monitorDeletionProgress(studentId, fingerprintId, commandId) {
+            const deletionRef = database.ref(`deletions/${studentId}`);
+            const commandRef = database.ref(`commands/${commandId}`);
+            
+            const fallbackTimeout = setTimeout(async () => {
+                try {
+                    const snapshot = await deletionRef.once('value');
+                    if (!snapshot.exists()) {
+                        await cleanupFailedDeletion(studentId, commandId, 'No deletion record found');
+                        return;
+                    }
+                    
+                    const deletion = snapshot.val();
+                    
+                    if (deletion.status === 'pending_device') {
+                        await deletionRef.update({
+                            status: 'completed_auto',
+                            completedAt: new Date().toISOString(),
+                            message: 'Auto-completed due to device timeout (90s)',
+                            autoCompleted: true
+                        });
+                        
+                        await database.ref(`students/${studentId}`).remove();
+                        
+                        await commandRef.update({
+                            status: 'completed_auto',
+                            completedAt: new Date().toISOString(),
+                            message: 'Auto-completed: Device did not respond'
+                        });
+                        
+                        showAlert(`${studentId} removed (device timeout)`, 'warning');
+                        loadStudents();
+                    }
+                    
+                } catch (error) {
+                    console.error('Error in fallback deletion:', error);
+                    await cleanupFailedDeletion(studentId, commandId, error.message);
+                }
+            }, 90000);
+            
+            deletionRef.on('value', async (snapshot) => {
+                if (!snapshot.exists()) {
+                    clearTimeout(fallbackTimeout);
+                    deletionRef.off();
+                    return;
+                }
+                
+                const deletion = snapshot.val();
+                
+                switch(deletion.status) {
+                    case 'completed':
+                        clearTimeout(fallbackTimeout);
+                        
+                        await database.ref(`students/${studentId}`).remove();
+                        
+                        await commandRef.update({
+                            status: 'completed',
+                            completedAt: new Date().toISOString(),
+                            message: deletion.message || 'Successfully deleted'
+                        });
+                        
+                        showAlert(`${studentId} deleted from device and database`, 'success');
+                        loadStudents();
+                        deletionRef.off();
+                        break;
+                        
+                    case 'failed':
+                        clearTimeout(fallbackTimeout);
+                        
+                        await database.ref(`students/${studentId}`).update({
+                            status: 'active',
+                            deletionError: deletion.message
+                        });
+                        
+                        await commandRef.update({
+                            status: 'failed',
+                            completedAt: new Date().toISOString(),
+                            error: deletion.message
+                        });
+                        
+                        showAlert(`Device deletion failed: ${deletion.message}`, 'error');
+                        loadStudents();
+                        deletionRef.off();
+                        break;
+                        
+                    case 'processing':
+                        await commandRef.update({
+                            status: 'processing',
+                            lastUpdate: new Date().toISOString()
+                        });
+                        break;
+                }
+            });
+        }
+        
+        async function cleanupFailedDeletion(studentId, commandId, errorMessage) {
+            try {
+                await database.ref(`students/${studentId}`).update({
+                    status: 'active',
+                    deletionError: errorMessage
+                });
+                
+                if (commandId) {
+                    await database.ref(`commands/${commandId}`).update({
+                        status: 'failed',
+                        completedAt: new Date().toISOString(),
+                        error: errorMessage
+                    });
+                }
+                
+                showAlert(`Cleaned up failed deletion for ${studentId}`, 'warning');
+                loadStudents();
+                
+            } catch (error) {
+                console.error('Error in cleanup:', error);
+            }
+        }
+        
+        // ==================== ENROLLMENT SYSTEM ====================
+        async function loadEnrollmentSection() {
+            const section = document.getElementById('enrollSection');
+            
+            const nextStudentId = await generateNextStudentId();
+            const nextFingerprintId = await generateNextFingerprintId();
+
+            section.innerHTML = `
+                <div class="section-header">
+                    <h2><i class="fas fa-fingerprint"></i> Enrollment System</h2>
+                    <div class="action-buttons flex-center" style="gap: 10px;">
+                        <button class="btn btn-primary" onclick="checkDeviceStatus()">
+                            <i class="fas fa-microchip"></i> Check Device
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="architecture-info">
+                    <h3><i class="fas fa-info-circle"></i> How Enrollment Works</h3>
+                    <p><strong>Process Flow:</strong></p>
+                    <ol style="margin: 10px 0 10px 20px;">
+                        <li>Enter student details in the form below</li>
+                        <li>System generates unique Student ID and Fingerprint ID</li>
+                        <li>Click "Enroll Student" to send command to Conductor device</li>
+                        <li>ESP32 enters enrollment mode and waits for fingerprint scan</li>
+                        <li>Student scans finger on the fingerprint sensor</li>
+                        <li>System confirms enrollment and stores data in Firebase</li>
+                    </ol>
+                </div>
+                
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: var(--info);">
+                            <i class="fas fa-microchip"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3>Device Status</h3>
+                            <div class="stat-number" id="deviceStatusDisplay">
+                                <span class="status-badge offline">Checking...</span>
+                            </div>
+                            <div id="deviceInfo"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: var(--success);">
+                            <i class="fas fa-fingerprint"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3>Available Slots</h3>
+                            <div class="stat-number" id="availableSlots">${127 - await getUsedSlots()}</div>
+                            <div style="font-size: 12px; color: var(--gray); margin-top: 5px;">Max: 127 fingerprints</div>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: var(--warning);">
+                            <i class="fas fa-id-card"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3>Next ID</h3>
+                            <div class="stat-number" id="nextStudentId">${nextStudentId}</div>
+                            <div style="font-size: 12px; color: var(--gray); margin-top: 5px;">Auto-generated</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="settings-panel">
+                    <h3 style="margin-bottom: 20px; color: var(--dark);">Enroll New Student</h3>
+                    
+                <form id="enrollForm" onsubmit="event.preventDefault(); enrollStudent();">
+                    <div class="form-group">
+                        <label for="studentName">Full Name *</label>
+                        <input type="text" id="studentName" placeholder="Enter student's full name" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="studentMatric">Matric Number *</label>
+                        <input type="text" id="studentMatric" placeholder="Enter matric number" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="studentPhone">Phone Number *</label>
+                        <input type="tel" id="studentPhone" placeholder="+1234567890" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="studentDept">Department</label>
+                        <select id="studentDept">
+                            <option value="Computer Engineering">Computer Engineering</option>
+                            <option value="Electrical Engineering">Electrical Engineering</option>
+                            <option value="Mechanical Engineering">Mechanical Engineering</option>
+                            <option value="Civil Engineering">Civil Engineering</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Student ID</label>
+                        <input type="text" id="studentId" value="${nextStudentId}" readonly style="background: #f5f5f5; font-weight: bold;">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Fingerprint ID</label>
+                        <input type="text" id="fingerprintId" value="${nextFingerprintId}" readonly style="background: #f5f5f5; font-weight: bold;">
+                    </div>
+                    
+                    <div id="enrollmentStatusContainer"></div>
+                    
+                    <div style="display: flex; gap: 15px; margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--border);">
+                        <button type="button" class="btn" onclick="clearEnrollmentForm()" style="background: var(--gray); color: white;">Clear</button>
+                        <button type="submit" class="btn btn-success">Enroll Student</button>
+                    </div>
+                </form>
+                </div>
+            `;
+            
+            // Update device status for enrollment section
+            database.ref('devices/Conductor').once('value').then(snapshot => {
+                if (snapshot.exists()) {
+                    updateEnrollmentSystemStatus(snapshot.val());
+                }
+            });
+        }
+        
+        async function generateNextStudentId() {
+            try {
+                const studentsRef = database.ref('students');
+                const snapshot = await studentsRef.once('value');
+                
+                if (!snapshot.exists()) {
+                    return 'ST001';
+                }
+                
+                const students = snapshot.val();
+                const ids = [];
+                
+                Object.keys(students).forEach(id => {
+                    const match = id.match(/ST(\d+)/);
+                    if (match) {
+                        ids.push(parseInt(match[1]));
+                    }
+                });
+                
+                if (ids.length === 0) {
+                    return 'ST001';
+                }
+                
+                ids.sort((a, b) => a - b);
+                
+                for (let i = 1; i <= 127; i++) {
+                    if (!ids.includes(i)) {
+                        return `ST${i.toString().padStart(3, '0')}`;
+                    }
+                }
+                
+                const smallest = Math.min(...ids);
+                return `ST${smallest.toString().padStart(3, '0')}`;
+                
+            } catch (error) {
+                console.error('Error generating student ID:', error);
+                return 'ST001';
+            }
+        }
+        
+        async function generateNextFingerprintId() {
+            try {
+                const studentsRef = database.ref('students');
+                const snapshot = await studentsRef.once('value');
+                
+                if (!snapshot.exists()) {
+                    return 1;
+                }
+                
+                const students = snapshot.val();
+                const usedIds = [];
+                
+                Object.values(students).forEach(student => {
+                    if (student.fingerprintId && student.fingerprintId >= 1 && student.fingerprintId <= 127) {
+                        usedIds.push(student.fingerprintId);
+                    }
+                });
+                
+                for (let id = 1; id <= 127; id++) {
+                    if (!usedIds.includes(id)) {
+                        return id;
+                    }
+                }
+                
+                return -1;
+                
+            } catch (error) {
+                console.error('Error generating fingerprint ID:', error);
+                return 1;
+            }
+        }
+        
+        async function getUsedSlots() {
+            try {
+                const studentsRef = database.ref('students');
+                const snapshot = await studentsRef.once('value');
+                
+                if (!snapshot.exists()) return 0;
+                
+                const students = snapshot.val();
+                let usedSlots = 0;
+                
+                Object.values(students).forEach(student => {
+                    if (student.fingerprintId && student.fingerprintId >= 1 && student.fingerprintId <= 127) {
+                        usedSlots++;
+                    }
+                });
+                
+                return usedSlots;
+            } catch (error) {
+                return 0;
+            }
+        }
+        
+            async function enrollStudent() {
+            const name = document.getElementById('studentName').value.trim();
+            const matric = document.getElementById('studentMatric').value.trim();
+            const phone = document.getElementById('studentPhone').value.trim();
+            const dept = document.getElementById('studentDept').value;
+            const studentId = document.getElementById('studentId').value;
+            const fingerprintId = parseInt(document.getElementById('fingerprintId').value);
+            
+            if (!name || !matric || !phone) {
+                showAlert('Please enter all required fields (name, matric, phone)', 'error');
+                return;
+            }
+            
+            if (fingerprintId === -1) {
+                showAlert('No available fingerprint slots', 'error');
+                return;
+            }
+            
+            // Check device status before enrolling
+            const deviceSnapshot = await database.ref('devices/Conductor').once('value');
+            if (!deviceSnapshot.exists()) {
+                showAlert('Device not found in database', 'error');
+                return;
+            }
+            
+            try {
+                showAlert(`Starting enrollment for ${name}...`, 'info');
+                
+                const existingStudent = await database.ref(`students/${studentId}`).once('value');
+                if (existingStudent.exists()) {
+                    showAlert(`Student ID ${studentId} already exists`, 'error');
+                    return;
+                }
+                
+                const commandRef = database.ref('commands').push();
+                const commandId = commandRef.key;
+                
+                await commandRef.set({
+                    command: 'ENROLL',
+                    studentId: studentId,
+                    fingerprintId: fingerprintId,
+                    name: name,
+                    matric: matric,
+                    phone: phone,
+                    department: dept,
+                    timestamp: new Date().toISOString(),
+                    requestedBy: currentUser.username,
+                    status: 'pending'
+                });
+                
+                await database.ref(`enrollmentStatus/${studentId}`).set({
+                    studentId: studentId,
+                    name: name,
+                    matric: matric,
+                    phone: phone,
+                    fingerprintId: fingerprintId,
+                    status: 'pending',
+                    message: 'Command sent to device',
+                    timestamp: new Date().toISOString(),
+                    commandId: commandId
+                });
+                
+                await database.ref(`students/${studentId}`).set({
+                    name: name,
+                    matric: matric,
+                    phone: phone,
+                    department: dept,
+                    fingerprintId: fingerprintId,
+                    enrollmentDate: new Date().toISOString().split('T')[0],
+                    createdAt: new Date().toISOString(),
+                    createdBy: currentUser.username,
+                    status: 'pending_enrollment'
+                });
+                
+                await logAudit('ENROLL_STUDENT', { studentId, name, matric, fingerprintId });
+                
+                showAlert(`Enrollment started for ${name}! Please scan finger on device.`, 'success');
+                
+                clearEnrollmentForm();
+                loadStudents();
+                
+            } catch (error) {
+                console.error('Error enrolling student:', error);
+                showAlert(`Failed to enroll student: ${error.message}`, 'error');
+            }
+        }
+                
+            function clearEnrollmentForm() {
+            const studentName = document.getElementById('studentName');
+            const studentMatric = document.getElementById('studentMatric');
+            const studentPhone = document.getElementById('studentPhone');
+            
+            if (studentName) studentName.value = '';
+            if (studentMatric) studentMatric.value = '';
+            if (studentPhone) studentPhone.value = '';
+            
+            setTimeout(async () => {
+                const nextStudentId = await generateNextStudentId();
+                const nextFingerprintId = await generateNextFingerprintId();
+                
+                const studentIdInput = document.getElementById('studentId');
+                const fingerprintIdInput = document.getElementById('fingerprintId');
+                
+                if (studentIdInput) studentIdInput.value = nextStudentId;
+                if (fingerprintIdInput) fingerprintIdInput.value = nextFingerprintId;
+                
+                const slotsElement = document.getElementById('availableSlots');
+                if (slotsElement) {
+                    slotsElement.textContent = 127 - await getUsedSlots();
+                }
+            }, 100);
+        }
+
+        
+        // ==================== ATTENDANCE MANAGEMENT ====================
+        async function loadAttendanceSection() {
+            const section = document.getElementById('attendanceSection');
+            
+            section.innerHTML = `
+                <div class="section-header">
+                    <h2><i class="fas fa-calendar-check"></i> Attendance Management</h2>
+                    <div class="action-buttons flex-center" style="gap: 10px;">
+                        <button class="btn btn-primary" onclick="loadAttendanceData()">
+                            <i class="fas fa-sync-alt"></i> Refresh
+                        </button>
+                        <button class="btn btn-success" onclick="markAttendanceManually()">
+                            <i class="fas fa-user-check"></i> Manual Entry
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="filter-container">
+                    <div class="form-group" style="flex: 1;">
+                        <label>Select Date</label>
+                        <input type="date" id="attendanceDate" value="${new Date().toISOString().split('T')[0]}">
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label>Filter by Department</label>
+                        <select id="attendanceDeptFilter">
+                            <option value="">All Departments</option>
+                            <option value="Computer Engineering">Computer Engineering</option>
+                            <option value="Electrical Engineering">Electrical Engineering</option>
+                            <option value="Mechanical Engineering">Mechanical Engineering</option>
+                            <option value="Civil Engineering">Civil Engineering</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label>Status</label>
+                        <select id="attendanceStatusFilter">
+                            <option value="">All Status</option>
+                            <option value="present">Present</option>
+                            <option value="absent">Absent</option>
+                            <option value="late">Late</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-primary" onclick="loadAttendanceData()">
+                        <i class="fas fa-filter"></i> Filter
+                    </button>
+                </div>
+                
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Student ID</th>
+                                <th>Name</th>
+                                <th>Department</th>
+                                <th>Check-in Time</th>
+                                <th>Check-out Time</th>
+                                <th>Status</th>
+                                <th>Duration</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="attendanceTable">
+                            <tr>
+                                <td colspan="8" style="text-align: center; padding: 40px;">
+                                    <i class="fas fa-spinner fa-spin"></i> Loading attendance data...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div style="margin-top: 20px;">
+                    <button class="btn btn-info" onclick="exportAttendance()">
+                        <i class="fas fa-download"></i> Export Attendance Report
+                    </button>
+                    <button class="btn btn-warning ml-10" onclick="generateAttendanceSummary()">
+                        <i class="fas fa-chart-bar"></i> Generate Summary
+                    </button>
+                </div>
+            `;
+            
+            loadAttendanceData();
+        }
+        
+        async function loadAttendanceData() {
+            try {
+                const date = document.getElementById('attendanceDate').value || new Date().toISOString().split('T')[0];
+                const deptFilter = document.getElementById('attendanceDeptFilter')?.value || '';
+                const statusFilter = document.getElementById('attendanceStatusFilter')?.value || '';
+                
+                const logsRef = database.ref(`logs/${date}`);
+                const studentsRef = database.ref('students');
+                
+                const [logsSnapshot, studentsSnapshot] = await Promise.all([
+                    logsRef.once('value'),
+                    studentsRef.once('value')
+                ]);
+                
+                const attendanceTable = document.getElementById('attendanceTable');
+                attendanceTable.innerHTML = '';
+                
+                if (!logsSnapshot.exists()) {
+                    attendanceTable.innerHTML = `
+                        <tr>
+                            <td colspan="8" style="text-align: center; padding: 40px;">
+                                <i class="fas fa-calendar-times"></i> No attendance records for ${date}
+                            </td>
+                        </tr>
+                    `;
+                    return;
+                }
+                
+                const logs = logsSnapshot.val();
+                const students = studentsSnapshot.val() || {};
+                
+                // Group logs by student
+                const studentLogs = {};
+                Object.values(logs).forEach(log => {
+                    if (!studentLogs[log.studentId]) {
+                        studentLogs[log.studentId] = { checkIn: null, checkOut: null };
+                    }
+                    
+                    if (log.eventType === 'CHECK_IN') {
+                        studentLogs[log.studentId].checkIn = log;
+                    } else if (log.eventType === 'CHECK_OUT') {
+                        studentLogs[log.studentId].checkOut = log;
+                    }
+                });
+                
+                // Process each student
+                Object.keys(students).forEach(studentId => {
+                    const student = students[studentId];
+                    
+                    // Apply filters
+                    if (deptFilter && student.department !== deptFilter) return;
+                    
+                    const logs = studentLogs[studentId] || {};
+                    const checkIn = logs.checkIn;
+                    const checkOut = logs.checkOut;
+                    
+                    let status = 'absent';
+                    let statusClass = 'offline';
+                    let duration = 'N/A';
+                    
+                    if (checkIn) {
+                        status = checkIn.late ? 'late' : 'present';
+                        statusClass = checkIn.late ? 'warning' : 'success';
+                        
+                        if (checkOut) {
+                            // Try multiple parsing methods
+                            let inTime = parseFirebaseTimestamp(checkIn.timestamp);
+                            let outTime = parseFirebaseTimestamp(checkOut.timestamp);
+                            
+                            // If Firebase parser fails, try time string parser
+                            if (!inTime || isNaN(inTime.getTime())) {
+                                inTime = parseTimeString(checkIn.timestamp);
+                            }
+                            if (!outTime || isNaN(outTime.getTime())) {
+                                outTime = parseTimeString(checkOut.timestamp);
+                            }
+                            
+                            // If still no valid dates, try epoch time
+                            if ((!inTime || isNaN(inTime.getTime())) && checkIn.epochTime) {
+                                inTime = parseEpochTime(checkIn.epochTime);
+                            }
+                            if ((!outTime || isNaN(outTime.getTime())) && checkOut.epochTime) {
+                                outTime = parseEpochTime(checkOut.epochTime);
+                            }
+                            
+                            // Last resort: try direct parsing
+                            if (!inTime || isNaN(inTime.getTime())) {
+                                inTime = new Date(checkIn.timestamp);
+                            }
+                            if (!outTime || isNaN(outTime.getTime())) {
+                                outTime = new Date(checkOut.timestamp);
+                            }
+                            
+                            // Debug logging
+                            if (studentId === 'ST001') {
+                                console.log('ST001 Debug:', {
+                                    checkInTimestamp: checkIn.timestamp,
+                                    checkOutTimestamp: checkOut.timestamp,
+                                    checkInEpoch: checkIn.epochTime,
+                                    checkOutEpoch: checkOut.epochTime,
+                                    inTime: inTime,
+                                    outTime: outTime,
+                                    inTimeValid: inTime && !isNaN(inTime.getTime()),
+                                    outTimeValid: outTime && !isNaN(outTime.getTime())
+                                });
+                            }
+                            
+                            if (inTime && outTime && !isNaN(inTime.getTime()) && !isNaN(outTime.getTime())) {
+                                const diffMs = outTime - inTime;
+                                
+                                if (diffMs >= 0) {
+                                    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+                                    const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+                                    const diffSeconds = Math.floor((diffMs % (1000 * 60)) / 1000);
+                                    
+                                    // Format nicely
+                                    if (diffHours > 0) {
+                                        duration = `${diffHours}h ${diffMinutes}m`;
+                                    } else if (diffMinutes > 0) {
+                                        duration = `${diffMinutes}m ${diffSeconds}s`;
+                                    } else {
+                                        duration = `${diffSeconds}s`;
+                                    }
+                                } else {
+                                    // Negative duration - times might be in wrong order
+                                    duration = 'Invalid';
+                                }
+                            } else {
+                                duration = 'N/A';
+                            }
+                        }
+                    }
+                    
+                    // Apply status filter
+                    if (statusFilter && status !== statusFilter) return;
+                    
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${studentId}</td>
+                        <td><strong>${student.name || 'Unknown'}</strong></td>
+                        <td>${student.department || 'N/A'}</td>
+                        <td>${checkIn ? formatTimestamp(checkIn.timestamp) : 'N/A'}</td>
+                        <td>${checkOut ? formatTimestamp(checkOut.timestamp) : 'N/A'}</td>
+                        <td><span class="status-badge ${statusClass}">${status.toUpperCase()}</span></td>
+                        <td>${duration}</td>
+                        <td>
+                            <button class="icon-btn" onclick="viewAttendanceDetails('${studentId}', '${date}')" title="View Details">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </td>
+                    `;
+                    attendanceTable.appendChild(row);
+                });
+                
+            } catch (error) {
+                console.error('Error loading attendance:', error);
+                showAlert('Failed to load attendance data', 'error');
+            }
+        }
+
+        // Helper function to parse epoch time
+        function parseEpochTime(epochTime) {
+            try {
+                if (!epochTime) return null;
+                
+                const epochNum = parseInt(epochTime);
+                if (isNaN(epochNum)) return null;
+                
+                // Check if it's in seconds or milliseconds
+                if (epochNum < 1000000000000) {
+                    // Likely in seconds, convert to milliseconds
+                    return new Date(epochNum * 1000);
+                } else {
+                    // Likely already in milliseconds
+                    return new Date(epochNum);
+                }
+            } catch (error) {
+                console.error('Error parsing epoch time:', error);
+                return null;
+            }
+        }
+
+        // Helper function to handle time-only strings (HH:MM:SS or HH:MM)
+        function parseTimeString(timeStr) {
+            try {
+                if (!timeStr || typeof timeStr !== 'string') return null;
+                
+                // Trim whitespace
+                timeStr = timeStr.trim();
+                
+                // Handle HH:MM:SS format
+                const match = timeStr.match(/^(\d{1,2}):(\d{2}):(\d{2})$/);
+                if (match) {
+                    const today = new Date();
+                    today.setHours(parseInt(match[1]), parseInt(match[2]), parseInt(match[3]), 0);
+                    return today;
+                }
+                
+                // Handle HH:MM format
+                const match2 = timeStr.match(/^(\d{1,2}):(\d{2})$/);
+                if (match2) {
+                    const today = new Date();
+                    today.setHours(parseInt(match2[1]), parseInt(match2[2]), 0, 0);
+                    return today;
+                }
+                
+                // Handle H:MM:SS format (single digit hour)
+                const match3 = timeStr.match(/^(\d{1}):(\d{2}):(\d{2})$/);
+                if (match3) {
+                    const today = new Date();
+                    today.setHours(parseInt(match3[1]), parseInt(match3[2]), parseInt(match3[3]), 0);
+                    return today;
+                }
+                
+                return null;
+            } catch (error) {
+                console.error('Error parsing time string:', error);
+                return null;
+            }
+        }
+
+// Helper function to parse Firebase timestamps
+function parseFirebaseTimestamp(timestamp) {
+    try {
+        // If null or undefined
+        if (!timestamp) return null;
+        
+        // Check if it's already a Date object
+        if (timestamp instanceof Date) {
+            return timestamp;
+        }
+        
+        // Check if it's a Firebase server timestamp object
+        if (typeof timestamp === 'object') {
+            // Firebase server timestamp with seconds
+            if (timestamp._seconds !== undefined) {
+                return new Date(timestamp._seconds * 1000);
+            }
+            // Firebase server timestamp with seconds and nanoseconds
+            if (timestamp.seconds !== undefined) {
+                return new Date(timestamp.seconds * 1000);
+            }
+            // ISO string in object
+            if (timestamp.iso) {
+                return new Date(timestamp.iso);
+            }
+        }
+        
+        // Check for ISO string
+        if (typeof timestamp === 'string' && timestamp.includes('T')) {
+            const date = new Date(timestamp);
+            if (!isNaN(date.getTime())) {
+                return date;
+            }
+        }
+        
+        // Check for epoch time (number or numeric string)
+        if (!isNaN(timestamp) && timestamp !== null && timestamp !== '') {
+            const numTimestamp = parseInt(timestamp);
+            if (!isNaN(numTimestamp)) {
+                // Check if it's in seconds (Firebase typically uses seconds)
+                if (numTimestamp < 1000000000000) {
+                    // Likely in seconds, convert to milliseconds
+                    return new Date(numTimestamp * 1000);
+                } else {
+                    // Likely already in milliseconds
+                    return new Date(numTimestamp);
+                }
+            }
+        }
+        
+        return null;
+    } catch (error) {
+        console.error('Error parsing Firebase timestamp:', error, timestamp);
+        return null;
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+        // Helper function to parse date/time from various formats
+        function parseDateTime(timestamp, epochTime) {
+            try {
+                // Try epoch time first
+                if (epochTime) {
+                    const epochNum = parseInt(epochTime);
+                    if (!isNaN(epochNum)) {
+                        // Check if it's in seconds or milliseconds
+                        if (epochNum < 1000000000000) {
+                            return new Date(epochNum * 1000); // Convert seconds to milliseconds
+                        } else {
+                            return new Date(epochNum); // Already in milliseconds
+                        }
+                    }
+                }
+                
+                // Try parsing the timestamp
+                return parseFirebaseTimestamp(timestamp);
+                
+            } catch (error) {
+                console.error('Error parsing date time:', error);
+                return null;
+            }
+        }
+
+        // Helper function to parse date/time from various formats
+        function parseDateTime(timestamp, epochTime) {
+            try {
+                // Try epoch time first (most reliable)
+                if (epochTime) {
+                    return new Date(parseInt(epochTime));
+                }
+                
+                // Try ISO string
+                if (timestamp && typeof timestamp === 'string') {
+                    // Check if it's already a time string
+                    if (timestamp.match(/^\d{1,2}:\d{2}:\d{2}$/)) {
+                        // Create a date with today's date and the time
+                        const today = new Date();
+                        const [hours, minutes, seconds] = timestamp.split(':').map(Number);
+                        today.setHours(hours, minutes, seconds);
+                        return today;
+                    }
+                    
+                    // Try parsing as ISO string
+                    if (timestamp.includes('T')) {
+                        return new Date(timestamp);
+                    }
+                }
+                
+                // Try as direct date
+                const date = new Date(timestamp);
+                if (!isNaN(date.getTime())) {
+                    return date;
+                }
+                
+                return null;
+            } catch (error) {
+                console.error('Error parsing date time:', error);
+                return null;
+            }
+        }
+        
+        function markAttendanceManually() {
+            showAlert('Manual attendance entry - Feature coming soon!', 'info');
+        }
+        
+        async function exportAttendance() {
+            try {
+                const date = document.getElementById('attendanceDate').value || new Date().toISOString().split('T')[0];
+                const deptFilter = document.getElementById('attendanceDeptFilter')?.value || '';
+                
+                const logsRef = database.ref(`logs/${date}`);
+                const studentsRef = database.ref('students');
+                
+                const [logsSnapshot, studentsSnapshot] = await Promise.all([
+                    logsRef.once('value'),
+                    studentsRef.once('value')
+                ]);
+                
+                if (!logsSnapshot.exists()) {
+                    showAlert('No attendance records for selected date', 'warning');
+                    return;
+                }
+                
+                const logs = logsSnapshot.val();
+                const students = studentsSnapshot.val() || {};
+                
+                const data = [];
+                
+                Object.keys(students).forEach(studentId => {
+                    const student = students[studentId];
+                    
+                    if (deptFilter && student.department !== deptFilter) return;
+                    
+                    // Find student logs for the day
+                    const studentLogs = Object.values(logs).filter(log => log.studentId === studentId);
+                    const checkIn = studentLogs.find(log => log.eventType === 'CHECK_IN');
+                    const checkOut = studentLogs.find(log => log.eventType === 'CHECK_OUT');
+                    
+                    data.push({
+                        'Date': date,
+                        'Student ID': studentId,
+                        'Name': student.name || '',
+                        'Matric Number': student.matric || '',  // Added matric number
+                        'Phone': student.phone || '',  // Added phone number
+                        'Department': student.department || '',
+                        'Check-in Time': checkIn ? formatTime(checkIn.timestamp) : 'N/A',
+                        'Check-out Time': checkOut ? formatTime(checkOut.timestamp) : 'N/A',
+                        'Status': checkIn ? (checkIn.late ? 'LATE' : 'PRESENT') : 'ABSENT',
+                        'Late Reason': checkIn?.lateReason || '',
+                        'Device': checkIn?.device || 'N/A'
+                    });
+                });
+                
+                const ws = XLSX.utils.json_to_sheet(data);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Attendance");
+                
+                const filename = `attendance_${date}.xlsx`;
+                XLSX.writeFile(wb, filename);
+                
+                showAlert('Attendance report exported successfully', 'success');
+                
+            } catch (error) {
+                console.error('Error exporting attendance:', error);
+                showAlert('Failed to export attendance report', 'error');
+            }
+        }
+        
+        function generateAttendanceSummary() {
+            showAlert('Attendance summary generation - Feature coming soon!', 'info');
+        }
+        
+        // ==================== REPORTS SYSTEM ====================
+        async function loadReportsSection() {
+            const section = document.getElementById('reportsSection');
+            
+            section.innerHTML = `
+                <div class="section-header">
+                    <h2><i class="fas fa-chart-bar"></i> Reports & Analytics</h2>
+                    <div class="action-buttons flex-center" style="gap: 10px;">
+                        <button class="btn btn-primary" onclick="generateDailyReport()">
+                            <i class="fas fa-file-pdf"></i> Daily Report
+                        </button>
+                        <button class="btn btn-success" onclick="generateWeeklyReport()">
+                            <i class="fas fa-file-excel"></i> Weekly Report
+                        </button>
+                        <button class="btn btn-info" onclick="generateMonthlyReport()">
+                            <i class="fas fa-file-alt"></i> Monthly Report
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="filter-container">
+                    <div class="form-group" style="flex: 1;">
+                        <label>Report Type</label>
+                        <select id="reportType">
+                            <option value="daily">Daily Report</option>
+                            <option value="weekly">Weekly Report</option>
+                            <option value="monthly">Monthly Report</option>
+                            <option value="custom">Custom Range</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label>Start Date</label>
+                        <input type="date" id="reportStartDate" value="${new Date().toISOString().split('T')[0]}">
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label>End Date</label>
+                        <input type="date" id="reportEndDate" value="${new Date().toISOString().split('T')[0]}">
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label>Format</label>
+                        <select id="reportFormat">
+                            <option value="excel">Excel (.xlsx)</option>
+                            <option value="pdf">PDF (.pdf)</option>
+                            <option value="csv">CSV (.csv)</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-primary" onclick="generateCustomReport()">
+                        <i class="fas fa-cog"></i> Generate Report
+                    </button>
+                </div>
+                
+                <div class="stats-grid">
+                    <div class="chart-container">
+                        <h3><i class="fas fa-chart-line"></i> Attendance Trend (Last 7 Days)</h3>
+                        <canvas id="attendanceTrendChart" height="200"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <h3><i class="fas fa-clock"></i> Peak Hours Analysis</h3>
+                        <canvas id="peakHoursChart" height="200"></canvas>
+                    </div>
+                </div>
+                
+                <div class="table-container">
+                    <div class="feed-header">
+                        <h3><i class="fas fa-list-alt"></i> Report History</h3>
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Report ID</th>
+                                <th>Type</th>
+                                <th>Date Range</th>
+                                <th>Generated On</th>
+                                <th>Generated By</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="reportsHistoryTable">
+                            <tr>
+                                <td colspan="6" style="text-align: center; padding: 40px;">
+                                    Loading report history...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            
+            loadReportsHistory();
+            loadReportCharts();
+        }
+        
+        async function loadReportsHistory() {
+            try {
+                const reportsRef = database.ref('reports');
+                const snapshot = await reportsRef.orderByChild('generatedOn').limitToLast(10).once('value');
+                const reportsTable = document.getElementById('reportsHistoryTable');
+                
+                reportsTable.innerHTML = '';
+                
+                if (!snapshot.exists()) {
+                    reportsTable.innerHTML = `
+                        <tr>
+                            <td colspan="6" style="text-align: center; padding: 40px;">
+                                No reports generated yet
+                            </td>
+                        </tr>
+                    `;
+                    return;
+                }
+                
+                const reports = snapshot.val();
+                
+                Object.entries(reports).forEach(([reportId, report]) => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${reportId.substring(0, 8)}...</td>
+                        <td>${report.type || 'Unknown'}</td>
+                        <td>${report.startDate || ''} to ${report.endDate || ''}</td>
+                        <td>${formatTime(report.generatedOn)}</td>
+                        <td>${report.generatedBy || 'System'}</td>
+                        <td>
+                            <button class="icon-btn" onclick="downloadReport('${reportId}')" title="Download">
+                                <i class="fas fa-download"></i>
+                            </button>
+                        </td>
+                    `;
+                    reportsTable.appendChild(row);
+                });
+                
+            } catch (error) {
+                console.error('Error loading reports history:', error);
+            }
+        }
+        
+        async function loadReportCharts() {
+            try {
+                // Load attendance trend for last 7 days
+                const endDate = new Date();
+                const startDate = new Date();
+                startDate.setDate(startDate.getDate() - 6);
+                
+                const dates = [];
+                const presentCounts = [];
+                const absentCounts = [];
+                
+                for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+                    const dateStr = d.toISOString().split('T')[0];
+                    dates.push(formatDate(d));
+                    
+                    const logsRef = database.ref(`logs/${dateStr}`);
+                    const studentsRef = database.ref('students');
+                    
+                    const [logsSnapshot, studentsSnapshot] = await Promise.all([
+                        logsRef.once('value'),
+                        studentsRef.once('value')
+                    ]);
+                    
+                    const totalStudents = studentsSnapshot.numChildren() || 0;
+                    let presentStudents = 0;
+                    
+                    if (logsSnapshot.exists()) {
+                        const logs = logsSnapshot.val();
+                        const presentSet = new Set();
+                        
+                        Object.values(logs).forEach(log => {
+                            if (log.eventType === 'CHECK_IN') {
+                                presentSet.add(log.studentId);
+                            }
+                        });
+                        
+                        presentStudents = presentSet.size;
+                    }
+                    
+                    presentCounts.push(presentStudents);
+                    absentCounts.push(totalStudents - presentStudents);
+                }
+                
+                // Create attendance trend chart
+                const trendCtx = document.getElementById('attendanceTrendChart').getContext('2d');
+                if (weeklyChart) {
+                    weeklyChart.destroy();
+                }
+                
+                weeklyChart = new Chart(trendCtx, {
+                    type: 'line',
+                    data: {
+                        labels: dates,
+                        datasets: [
+                            {
+                                label: 'Present',
+                                data: presentCounts,
+                                borderColor: 'rgba(46, 204, 113, 1)',
+                                backgroundColor: 'rgba(46, 204, 113, 0.1)',
+                                fill: true,
+                                tension: 0.4
+                            },
+                            {
+                                label: 'Absent',
+                                data: absentCounts,
+                                borderColor: 'rgba(231, 76, 60, 1)',
+                                backgroundColor: 'rgba(231, 76, 60, 0.1)',
+                                fill: true,
+                                tension: 0.4
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Number of Students'
+                                }
+                            }
+                        }
+                    }
+                });
+                
+                // Create peak hours chart
+                const today = new Date().toISOString().split('T')[0];
+                const logsRef = database.ref(`logs/${today}`);
+                const logsSnapshot = await logsRef.once('value');
+                
+                if (logsSnapshot.exists()) {
+                    const logs = logsSnapshot.val();
+                    const hourCounts = Array(24).fill(0);
+                    
+                    Object.values(logs).forEach(log => {
+                        if (log.eventType === 'CHECK_IN') {
+                            const time = new Date(log.timestamp);
+                            const hour = time.getHours();
+                            hourCounts[hour]++;
+                        }
+                    });
+                    
+                    const hourLabels = Array.from({length: 24}, (_, i) => `${i}:00`);
+                    
+                    const peakCtx = document.getElementById('peakHoursChart').getContext('2d');
+                    if (departmentChart) {
+                        departmentChart.destroy();
+                    }
+                    
+                    departmentChart = new Chart(peakCtx, {
+                        type: 'bar',
+                        data: {
+                            labels: hourLabels,
+                            datasets: [{
+                                label: 'Check-ins per Hour',
+                                data: hourCounts,
+                                backgroundColor: 'rgba(52, 152, 219, 0.7)',
+                                borderColor: 'rgba(52, 152, 219, 1)',
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    title: {
+                                        display: true,
+                                        text: 'Number of Check-ins'
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+                
+            } catch (error) {
+                console.error('Error loading report charts:', error);
+            }
+        }
+        
+        async function generateCustomReport() {
+            const reportType = document.getElementById('reportType').value;
+            const startDate = document.getElementById('reportStartDate').value;
+            const endDate = document.getElementById('reportEndDate').value;
+            const format = document.getElementById('reportFormat').value;
+            
+            if (!startDate || !endDate) {
+                showAlert('Please select start and end dates', 'error');
+                return;
+            }
+            
+            if (new Date(startDate) > new Date(endDate)) {
+                showAlert('Start date must be before end date', 'error');
+                return;
+            }
+            
+            try {
+                showAlert(`Generating ${reportType} report...`, 'info');
+                
+                // Collect data for the date range
+                const reportData = await collectReportData(startDate, endDate);
+                
+                // Save report to Firebase
+                const reportRef = database.ref('reports').push();
+                const reportId = reportRef.key;
+                
+                await reportRef.set({
+                    type: reportType,
+                    startDate: startDate,
+                    endDate: endDate,
+                    generatedOn: new Date().toISOString(),
+                    generatedBy: currentUser.username,
+                    format: format,
+                    dataCount: reportData.length
+                });
+                
+                // Generate file based on format
+                switch (format) {
+                    case 'excel':
+                        await generateExcelReport(reportData, startDate, endDate);
+                        break;
+                    case 'pdf':
+                        await generatePDFReport(reportData, startDate, endDate);
+                        break;
+                    case 'csv':
+                        await generateCSVReport(reportData, startDate, endDate);
+                        break;
+                }
+                
+                showAlert(`Report generated successfully!`, 'success');
+                loadReportsHistory();
+                
+            } catch (error) {
+                console.error('Error generating report:', error);
+                showAlert(`Failed to generate report: ${error.message}`, 'error');
+            }
+        }
+        
+        async function collectReportData(startDate, endDate) {
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            const reportData = [];
+            
+            for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+                const dateStr = d.toISOString().split('T')[0];
+                
+                const logsRef = database.ref(`logs/${dateStr}`);
+                const logsSnapshot = await logsRef.once('value');
+                
+                if (logsSnapshot.exists()) {
+                    const logs = logsSnapshot.val();
+                    
+                    Object.values(logs).forEach(log => {
+                        reportData.push({
+                            date: dateStr,
+                            studentId: log.studentId || '',
+                            name: log.name || '',
+                            eventType: log.eventType || '',
+                            time: formatTime(log.timestamp),
+                            device: log.device || '',
+                            late: log.late || false,
+                            lateReason: log.lateReason || ''
+                        });
+                    });
+                }
+            }
+            
+            return reportData;
+        }
+        
+        async function generateExcelReport(data, startDate, endDate) {
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Attendance Report");
+            
+            const filename = `attendance_report_${startDate}_to_${endDate}.xlsx`;
+            XLSX.writeFile(wb, filename);
+        }
+        
+        async function generatePDFReport(data, startDate, endDate) {
+            // Note: jsPDF implementation would go here
+            // This is a simplified version
+            showAlert('PDF generation requires additional setup. Exporting as Excel instead.', 'warning');
+            await generateExcelReport(data, startDate, endDate);
+        }
+        
+        async function generateCSVReport(data, startDate, endDate) {
+            const ws = XLSX.utils.json_to_sheet(data);
+            const csv = XLSX.utils.sheet_to_csv(ws);
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `attendance_report_${startDate}_to_${endDate}.csv`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+        }
+        
+        function generateDailyReport() {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('reportType').value = 'daily';
+            document.getElementById('reportStartDate').value = today;
+            document.getElementById('reportEndDate').value = today;
+            generateCustomReport();
+        }
+        
+        function generateWeeklyReport() {
+            const endDate = new Date();
+            const startDate = new Date();
+            startDate.setDate(startDate.getDate() - 6);
+            
+            document.getElementById('reportType').value = 'weekly';
+            document.getElementById('reportStartDate').value = startDate.toISOString().split('T')[0];
+            document.getElementById('reportEndDate').value = endDate.toISOString().split('T')[0];
+            generateCustomReport();
+        }
+        
+        function generateMonthlyReport() {
+            const endDate = new Date();
+            const startDate = new Date();
+            startDate.setMonth(startDate.getMonth() - 1);
+            
+            document.getElementById('reportType').value = 'monthly';
+            document.getElementById('reportStartDate').value = startDate.toISOString().split('T')[0];
+            document.getElementById('reportEndDate').value = endDate.toISOString().split('T')[0];
+            generateCustomReport();
+        }
+        
+        // ==================== DATA LOADING ====================
+        async function loadAllData() {
+            try {
+                await Promise.all([
+                    loadStudents(),
+                    loadDashboardData(),
+                    loadTotalLogs(),
+                    updateCharts()
+                ]);
+                
+                console.log('✅ All data loaded successfully');
+                
+            } catch (error) {
+                console.error('Error loading data:', error);
+                showAlert('Failed to load system data', 'error');
+            }
+        }
+        
+        async function loadDashboardData() {
+            try {
+                const today = new Date().toISOString().split('T')[0];
+                
+                const studentsSnapshot = await database.ref('students').once('value');
+                const studentCount = studentsSnapshot.numChildren() || 0;
+                document.getElementById('totalStudents').textContent = studentCount;
+                
+                const logsRef = database.ref(`logs/${today}`);
+                const logsSnapshot = await logsRef.once('value');
+                const logsData = logsSnapshot.val() || {};
+                
+                const uniqueStudents = new Set();
+                Object.values(logsData).forEach(log => {
+                    if (log.eventType === 'CHECK_IN') {
+                        uniqueStudents.add(log.studentId);
+                    }
+                });
+                
+                const logsCount = Object.keys(logsData).length;
+                
+                document.getElementById('presentToday').textContent = uniqueStudents.size;
+                document.getElementById('absentToday').textContent = Math.max(0, studentCount - uniqueStudents.size);
+                document.getElementById('logsToday').textContent = logsCount;
+                
+            } catch (error) {
+                console.error('Error loading dashboard data:', error);
+            }
+        }
+        
+        async function loadTotalLogs() {
+            try {
+                const logsRef = database.ref('logs');
+                const snapshot = await logsRef.once('value');
+                
+                let totalLogs = 0;
+                if (snapshot.exists()) {
+                    const logsData = snapshot.val();
+                    Object.values(logsData).forEach(dateLogs => {
+                        totalLogs += Object.keys(dateLogs).length;
+                    });
+                }
+                
+                const totalLogsElement = document.getElementById('totalLogs');
+                if (totalLogsElement) {
+                    totalLogsElement.textContent = totalLogs;
+                }
+                
+            } catch (error) {
+                console.error('Error loading total logs:', error);
+            }
+        }
+        
+        async function updateCharts() {
+            // This would update the dashboard charts
+            // Implementation depends on specific chart requirements
+        }
+        
+        // ==================== UTILITY FUNCTIONS ====================
+        function updateTime() {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('en-US', {
+                hour12: false,
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+            const dateString = now.toISOString().split('T')[0];
+            
+            document.getElementById('currentTime').textContent = timeString;
+            document.getElementById('currentDate').textContent = ' - ' + dateString;
+        }
+        
+        function showAlert(message, type = 'info', duration = 5000) {
+            const alertContainer = document.getElementById('alertContainer');
+            
+            const alert = document.createElement('div');
+            alert.className = `alert ${type}`;
+            alert.innerHTML = `
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-${type === 'success' ? 'check-circle' : 
+                                     type === 'error' ? 'exclamation-circle' : 
+                                     type === 'warning' ? 'exclamation-triangle' : 'info-circle'}"></i>
+                    <span style="margin-left: 10px;">${message}</span>
+                </div>
+                <button onclick="this.parentElement.remove()" style="background: none; border: none; cursor: pointer; color: inherit;">&times;</button>
+            `;
+            
+            alertContainer.appendChild(alert);
+            
+            // Limit to 3 alerts
+            while (alertContainer.children.length > 3) {
+                alertContainer.removeChild(alertContainer.firstChild);
+            }
+            
+            setTimeout(() => {
+                if (alert.parentElement) {
+                    alert.remove();
+                }
+            }, duration);
+        }
+        
+        function setupNavigation() {
+            const navButtons = document.querySelectorAll('.nav-btn');
+            
+            navButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    navButtons.forEach(btn => {
+                        btn.classList.remove('active');
+                    });
+                    this.classList.add('active');
+                    
+                    const sectionId = this.getAttribute('data-section') + 'Section';
+                    document.querySelectorAll('.section').forEach(section => {
+                        section.classList.remove('active');
+                    });
+                    document.getElementById(sectionId).classList.add('active');
+                    
+                    switch(sectionId) {
+                        case 'dashboardSection':
+                            loadDashboardData();
+                            updateCharts();
+                            break;
+                        case 'studentsSection':
+                            loadStudents();
+                            break;
+                        case 'enrollSection':
+                            loadEnrollmentSection();
+                            break;
+                        case 'attendanceSection':
+                            loadAttendanceSection();
+                            break;
+                        case 'reportsSection':
+                            loadReportsSection();
+                            break;
+                        case 'logsSection':
+                            loadLogsSection();
+                            break;
+                        case 'adminSection':
+                            loadAdminSection();
+                            break;
+                    }
+                });
+            });
+        }
+        
+        function setupSearch() {
+            const studentSearch = document.getElementById('studentSearch');
+            if (studentSearch) {
+                studentSearch.addEventListener('input', function() {
+                    const searchTerm = this.value.toLowerCase();
+                    const rows = document.querySelectorAll('#studentsTable tr');
+                    
+                    rows.forEach(row => {
+                        const text = row.textContent.toLowerCase();
+                        row.style.display = text.includes(searchTerm) ? '' : 'none';
+                    });
+                });
+            }
+        }
+        
+        function setupForms() {
+            const addStudentForm = document.getElementById('addStudentForm');
+            if (addStudentForm) {
+                addStudentForm.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    await addStudentFromForm();
+                });
+            }
+        }
+        
+        // ==================== MODAL FUNCTIONS ====================
+        function showModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.style.display = 'flex';
+            }
+        }
+        
+        function closeModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        }
+        
+        function showAddStudentModal() {
+            generateNextStudentId().then(studentId => {
+                document.getElementById('newStudentId').value = studentId;
+                showModal('addStudentModal');
+            });
+        }
+        
+        async function addStudentFromForm() {
+            const name = document.getElementById('newStudentName').value.trim();
+            const matric = document.getElementById('newStudentMatric').value.trim();
+            const phone = document.getElementById('newStudentPhone').value.trim();
+            const dept = document.getElementById('newStudentDept').value;
+            const year = document.getElementById('newStudentYear').value;
+            const studentId = document.getElementById('newStudentId').value;
+            
+            if (!name || !matric) {
+                showAlert('Please enter student name and matric number', 'error');
+                return;
+            }
+            
+            try {
+                const existingStudent = await database.ref(`students/${studentId}`).once('value');
+                if (existingStudent.exists()) {
+                    showAlert(`Student ID ${studentId} already exists`, 'error');
+                    return;
+                }
+                
+                await database.ref(`students/${studentId}`).set({
+                    name: name,
+                    matric: matric,
+                    phone: phone,
+                    department: dept,
+                    yearLevel: year,
+                    createdAt: new Date().toISOString(),
+                    createdBy: currentUser.username,
+                    status: 'active'
+                });
+                
+                await logAudit('ADD_STUDENT', { studentId, name, matric, department: dept });
+                
+                showAlert(`Student ${name} added successfully`, 'success');
+                closeModal('addStudentModal');
+                loadStudents();
+                
+            } catch (error) {
+                console.error('Error adding student:', error);
+                showAlert(`Failed to add student: ${error.message}`, 'error');
+            }
+        }
+                
+        function showSystemStatus() {
+            const statusContent = document.getElementById('systemStatusContent');
+            
+            let content = `
+                <div class="stats-grid" style="grid-template-columns: 1fr;">
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: ${isOnline ? 'var(--success)' : 'var(--danger)'};">
+                            <i class="fas fa-${isOnline ? 'wifi' : 'wifi-slash'}"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3>Firebase Connection</h3>
+                            <div class="stat-number">${isOnline ? 'Online' : 'Offline'}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: var(--info);">
+                            <i class="fas fa-database"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3>Offline Queue</h3>
+                            <div class="stat-number">${offlineQueue.length} pending</div>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: var(--warning);">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3>Total Students</h3>
+                            <div class="stat-number" id="modalTotalStudents">0</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 20px;">
+                    <h4>System Information</h4>
+                    <p><strong>Browser:</strong> ${navigator.userAgent}</p>
+                    <p><strong>Screen Resolution:</strong> ${window.screen.width}x${window.screen.height}</p>
+                    <p><strong>Local Storage:</strong> ${localStorage.length} items</p>
+                    <p><strong>Last Login:</strong> ${new Date(localStorage.getItem('last_login') || Date.now()).toLocaleString()}</p>
+                </div>
+            `;
+            
+            statusContent.innerHTML = content;
+            
+            // Update student count
+            database.ref('students').once('value').then(snapshot => {
+                const count = snapshot.numChildren() || 0;
+                document.getElementById('modalTotalStudents').textContent = count;
+            });
+            
+            showModal('systemStatusModal');
+        }
+        
+        // ==================== AUDIT TRAIL ====================
+        async function logAudit(action, details) {
+            try {
+                const auditRef = database.ref(`audit_trail/${new Date().toISOString().split('T')[0]}`).push();
+                
+                await auditRef.set({
+                    timestamp: new Date().toISOString(),
+                    action: action,
+                    user: currentUser.username,
+                    details: details,
+                    ip: await getClientIP(),
+                    userAgent: navigator.userAgent
+                });
+            } catch (error) {
+                console.error('Error logging audit:', error);
+            }
+        }
+        
+        async function getClientIP() {
+            try {
+                const response = await fetch('https://api.ipify.org?format=json');
+                const data = await response.json();
+                return data.ip;
+            } catch (error) {
+                return '127.0.0.1';
+            }
+        }
+        
+        // ==================== LIVE FEED ====================
+        function toggleLiveFeed() {
+            const btn = document.getElementById('liveFeedBtn');
+            
+            liveFeedActive = !liveFeedActive;
+            
+            if (liveFeedActive) {
+                btn.innerHTML = '<i class="fas fa-pause"></i> Stop Feed';
+                startLiveFeed();
+            } else {
+                btn.innerHTML = '<i class="fas fa-play"></i> Start Feed';
+                stopLiveFeed();
+            }
+        }
+        
+        function startLiveFeed() {
+            const today = new Date().toISOString().split('T')[0];
+            const logsRef = database.ref(`logs/${today}`);
+            
+            if (liveLogsListener) {
+                logsRef.off('child_added', liveLogsListener);
+            }
+            
+            liveLogsListener = logsRef.on('child_added', (snapshot) => {
+                const log = snapshot.val();
+                addToLiveFeed(log);
+                updateDashboardStats();
+            });
+            
+            showAlert('Live feed started', 'success');
+        }
+        
+        function stopLiveFeed() {
+            if (liveLogsListener) {
+                const today = new Date().toISOString().split('T')[0];
+                const logsRef = database.ref(`logs/${today}`);
+                logsRef.off('child_added', liveLogsListener);
+                liveLogsListener = null;
+            }
+            
+            liveFeedActive = false;
+            const btn = document.getElementById('liveFeedBtn');
+            if (btn) {
+                btn.innerHTML = '<i class="fas fa-play"></i> Start Feed';
+            }
+        }
+        
+        function addToLiveFeed(log) {
+            const liveFeed = document.getElementById('liveFeed');
+            
+            const feedItem = document.createElement('div');
+            feedItem.className = 'feed-item';
+            
+            const eventType = log.eventType || 'CHECK_IN';
+            const icon = eventType === 'CHECK_IN' ? 'sign-in-alt' : 'sign-out-alt';
+            
+            feedItem.innerHTML = `
+                <div class="feed-icon" style="background: ${eventType === 'CHECK_IN' ? 'var(--success)' : 'var(--warning)'};">
+                    <i class="fas fa-${icon}"></i>
+                </div>
+                <div class="feed-details" style="flex: 1;">
+                    <span class="feed-name" style="font-weight: bold; display: block;">${log.name || log.studentId || 'Unknown'}</span>
+                    <span class="feed-time" style="font-size: 14px; color: var(--gray); display: block;">${formatTimestamp(log.timestamp)}</span>
+                </div>
+                <span class="feed-status" style="padding: 5px 15px; border-radius: 20px; font-size: 12px; font-weight: bold; background: ${eventType === 'CHECK_IN' ? 'rgba(46, 204, 113, 0.2)' : 'rgba(243, 156, 18, 0.2)'}; color: ${eventType === 'CHECK_IN' ? 'var(--success)' : 'var(--warning)'}">
+                    ${eventType}
+                </span>
+            `;
+            
+            liveFeed.insertBefore(feedItem, liveFeed.firstChild);
+            
+            while (liveFeed.children.length > 15) {
+                liveFeed.removeChild(liveFeed.lastChild);
+            }
+        }
+        
+
+        // Add this function to handle time-only strings
+        function parseTimeString(timeStr) {
+            try {
+                if (!timeStr) return null;
+                
+                if (typeof timeStr === 'string') {
+                    // Handle HH:MM:SS format
+                    const match = timeStr.match(/^(\d{1,2}):(\d{2}):(\d{2})$/);
+                    if (match) {
+                        const today = new Date();
+                        today.setHours(parseInt(match[1]), parseInt(match[2]), parseInt(match[3]), 0);
+                        return today;
+                    }
+                    
+                    // Handle HH:MM format
+                    const match2 = timeStr.match(/^(\d{1,2}):(\d{2})$/);
+                    if (match2) {
+                        const today = new Date();
+                        today.setHours(parseInt(match2[1]), parseInt(match2[2]), 0, 0);
+                        return today;
+                    }
+                }
+                
+                return null;
+            } catch (error) {
+                console.error('Error parsing time string:', error);
+                return null;
+            }
+        }
+        // ==================== TIME FORMATTING FUNCTIONS ==================== parseTimeString
+        function formatTimestamp(timestamp) {
+            if (!timestamp) return '--:--:--';
+            
+            try {
+                // First try to parse as a date
+                const date = parseFirebaseTimestamp(timestamp) || 
+                            parseDateTime(timestamp) || 
+                            new Date(timestamp);
+                
+                if (date && !isNaN(date.getTime())) {
+                    return date.toLocaleTimeString('en-US', {
+                        hour12: false,
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit'
+                    });
+                }
+                
+                // If it's already a time string in HH:MM:SS format
+                if (typeof timestamp === 'string' && timestamp.match(/^\d{1,2}:\d{2}:\d{2}$/)) {
+                    return timestamp;
+                }
+                
+                // If it's just a time without seconds
+                if (typeof timestamp === 'string' && timestamp.match(/^\d{1,2}:\d{2}$/)) {
+                    return timestamp + ':00';
+                }
+                
+                return timestamp.toString();
+                
+            } catch (error) {
+                console.error('Error formatting timestamp:', error, timestamp);
+                return 'Error';
+            }
+        }
+
+        function formatTime(timestamp) {
+            if (!timestamp) return 'N/A';
+            
+            try {
+                const formatted = formatTimestamp(timestamp);
+                // Remove seconds if present
+                return formatted.replace(/:\d{2}$/, '');
+            } catch (error) {
+                console.error('Error formatting time:', error);
+                return 'Error';
+            }
+        }
+        
+        function formatDate(date) {
+            return date.toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric'
+            });
+        }
+        
+        function updateDashboardStats() {
+            loadDashboardData();
+        }
+        
+        // ==================== EXPORT FUNCTIONS ====================
+        async function exportStudents() {
+            try {
+                const studentsRef = database.ref('students');
+                const snapshot = await studentsRef.once('value');
+                
+                if (!snapshot.exists()) {
+                    showAlert('No students to export', 'warning');
+                    return;
+                }
+                
+                const students = snapshot.val();
+                const data = [];
+                
+                Object.entries(students).forEach(([studentId, student]) => {
+                    data.push({
+                        'Student ID': studentId,
+                        'Name': student.name || '',
+                        'Matric Number': student.matric || '',
+                        'Phone': student.phone || '',
+                        'Department': student.department || '',
+                        'Year Level': student.yearLevel || '',
+                        'Fingerprint ID': student.fingerprintId || '',
+                        'Status': student.status || '',
+                        'Enrollment Date': student.enrollmentDate || '',
+                        'Created By': student.createdBy || ''
+                    });
+                });
+                
+                const ws = XLSX.utils.json_to_sheet(data);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Students");
+                
+                const filename = `students_${new Date().toISOString().split('T')[0]}.xlsx`;
+                XLSX.writeFile(wb, filename);
+                
+                showAlert('Students exported successfully', 'success');
+                
+            } catch (error) {
+                console.error('Error exporting students:', error);
+                showAlert('Failed to export students', 'error');
+            }
+        }
+                
+        // ==================== OTHER SECTION LOADERS ====================
+        async function loadLogsSection() {
+            const section = document.getElementById('logsSection');
+            
+            section.innerHTML = `
+                <div class="section-header">
+                    <h2><i class="fas fa-history"></i> Transaction Logs</h2>
+                    <div class="action-buttons flex-center" style="gap: 10px;">
+                        <button class="btn btn-primary" onclick="exportAllLogs()">
+                            <i class="fas fa-download"></i> Export All Logs
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="filter-container">
+                    <div class="form-group" style="flex: 1;">
+                        <label>Select Date</label>
+                        <input type="date" id="logsDate" value="${new Date().toISOString().split('T')[0]}">
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label>Event Type</label>
+                        <select id="logsEventFilter">
+                            <option value="">All Events</option>
+                            <option value="CHECK_IN">Check-in</option>
+                            <option value="CHECK_OUT">Check-out</option>
+                            <option value="ENROLL">Enrollment</option>
+                            <option value="DELETE">Deletion</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label>Student ID</label>
+                        <input type="text" id="logsStudentFilter" placeholder="Filter by Student ID">
+                    </div>
+                    <button class="btn btn-primary" onclick="loadDailyLogs()">
+                        <i class="fas fa-search"></i> Load Logs
+                    </button>
+                </div>
+                
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Student ID</th>
+                                <th>Name</th>
+                                <th>Event Type</th>
+                                <th>Device</th>
+                                <th>Details</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dailyLogsTable">
+                            <tr>
+                                <td colspan="6" style="text-align: center; padding: 40px;">
+                                    Select a date and click "Load Logs"
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+        
+        async function loadDailyLogs() {
+            const date = document.getElementById('logsDate').value;
+            const eventFilter = document.getElementById('logsEventFilter')?.value || '';
+            const studentFilter = document.getElementById('logsStudentFilter')?.value.toLowerCase() || '';
+            
+            if (!date) {
+                showAlert('Please select a date', 'error');
+                return;
+            }
+            
+            try {
+                const logsRef = database.ref(`logs/${date}`);
+                const snapshot = await logsRef.once('value');
+                const logsTable = document.getElementById('dailyLogsTable');
+                
+                logsTable.innerHTML = '';
+                
+                if (!snapshot.exists()) {
+                    logsTable.innerHTML = `
+                        <tr>
+                            <td colspan="6" style="text-align: center; padding: 40px;">
+                                No logs found for ${date}
+                            </td>
+                        </tr>
+                    `;
+                    return;
+                }
+                
+                const logsData = snapshot.val();
+                const logsArray = Object.entries(logsData).map(([logId, log]) => ({
+                    id: logId,
+                    ...log
+                }));
+                
+                logsArray.sort((a, b) => {
+                    if (a.epochTime && b.epochTime) {
+                        return b.epochTime - a.epochTime;
+                    }
+                    return 0;
+                });
+                
+                logsArray.forEach(log => {
+                    // Apply filters
+                    if (eventFilter && log.eventType !== eventFilter) return;
+                    if (studentFilter && !log.studentId?.toLowerCase().includes(studentFilter)) return;
+                    
+                    const row = document.createElement('tr');
+                    const eventType = log.eventType || 'UNKNOWN';
+                    
+                    row.innerHTML = `
+                        <td>${formatTimestamp(log.timestamp)}</td>
+                        <td>${log.studentId || 'N/A'}</td>
+                        <td>${log.name || 'Unknown'}</td>
+                        <td>
+                            <span style="padding: 5px 10px; border-radius: 15px; font-size: 12px; font-weight: bold; background: ${eventType === 'CHECK_IN' ? 'rgba(46, 204, 113, 0.2)' : 
+                                                                                                        eventType === 'CHECK_OUT' ? 'rgba(243, 156, 18, 0.2)' :
+                                                                                                        eventType === 'ENROLL' ? 'rgba(52, 152, 219, 0.2)' :
+                                                                                                        'rgba(231, 76, 60, 0.2)'}; 
+                                                   color: ${eventType === 'CHECK_IN' ? 'var(--success)' : 
+                                                          eventType === 'CHECK_OUT' ? 'var(--warning)' :
+                                                          eventType === 'ENROLL' ? 'var(--info)' :
+                                                          'var(--danger)'}">
+                                ${eventType}
+                            </span>
+                        </td>
+                        <td>${log.device || 'Conductor'}</td>
+                        <td>${log.lateReason || log.message || ''}</td>
+                    `;
+                    logsTable.appendChild(row);
+                });
+                
+            } catch (error) {
+                console.error('Error loading logs:', error);
+                showAlert('Failed to load logs', 'error');
+            }
+        }
+        
+        async function exportAllLogs() {
+            try {
+                const logsRef = database.ref('logs');
+                const snapshot = await logsRef.once('value');
+                
+                if (!snapshot.exists()) {
+                    showAlert('No logs found', 'warning');
+                    return;
+                }
+                
+                const logsData = snapshot.val();
+                const data = [];
+                
+                Object.entries(logsData).forEach(([date, dailyLogs]) => {
+                    Object.values(dailyLogs).forEach(log => {
+                        data.push({
+                            'Date': date,
+                            'Time': formatTimestamp(log.timestamp),
+                            'Student ID': log.studentId || '',
+                            'Name': log.name || '',
+                            'Event Type': log.eventType || '',
+                            'Device': log.device || '',
+                            'Details': log.lateReason || log.message || ''
+                        });
+                    });
+                });
+                
+                const ws = XLSX.utils.json_to_sheet(data);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "All Logs");
+                
+                const filename = `all_logs_${new Date().toISOString().split('T')[0]}.xlsx`;
+                XLSX.writeFile(wb, filename);
+                
+                showAlert('All logs exported successfully', 'success');
+                
+            } catch (error) {
+                console.error('Error exporting logs:', error);
+                showAlert('Failed to export logs', 'error');
+            }
+        }
+        
+        async function loadAdminSection() {
+            const section = document.getElementById('adminSection');
+            
+            section.innerHTML = `
+                <div class="section-header">
+                    <h2><i class="fas fa-cog"></i> System Administration</h2>
+                    <div class="action-buttons flex-center" style="gap: 10px;">
+                        <button class="btn btn-primary" onclick="loadSystemCommands()">
+                            <i class="fas fa-sync"></i> Refresh Status
+                        </button>
+                        <button class="btn btn-danger" onclick="clearAllData()">
+                            <i class="fas fa-trash"></i> Clear All Data
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="architecture-info">
+                    <h3><i class="fas fa-project-diagram"></i> System Connectivity</h3>
+                    <p><strong>Firebase ↔ Conductor Communication:</strong></p>
+                    <div class="architecture-grid">
+                        <div class="architecture-item">
+                            <h4><i class="fas fa-signal"></i> Device Status</h4>
+                            <p>Conductor sends heartbeat every 30 seconds to 'devices/Conductor'</p>
+                        </div>
+                        <div class="architecture-item">
+                            <h4><i class="fas fa-bullhorn"></i> Commands</h4>
+                            <p>Web sends commands to 'commands' path, conductor listens and executes</p>
+                        </div>
+                        <div class="architecture-item">
+                            <h4><i class="fas fa-history"></i> Logs</h4>
+                            <p>Conductor sends attendance logs to 'logs/date' path in real-time</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: var(--info);">
+                            <i class="fas fa-database"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3>Database Status</h3>
+                            <div class="stat-number" id="dbStatus" style="font-size: 24px; font-weight: bold; color: ${isOnline ? 'var(--success)' : 'var(--danger)'};">${isOnline ? 'Connected' : 'Disconnected'}</div>
+                            <div id="deviceStatusBadge" style="margin-top: 5px;"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: var(--success);">
+                            <i class="fas fa-server"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3>Total Logs</h3>
+                            <div class="stat-number" id="totalLogs">0</div>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: var(--warning);">
+                            <i class="fas fa-bell"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3>Offline Queue</h3>
+                            <div class="stat-number" id="offlineQueueCount">${offlineQueue.length}</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="settings-panel">
+                    <h3><i class="fas fa-sliders-h"></i> System Settings</h3>
+                    
+                    <div class="settings-item">
+                        <div>
+                            <h4>Auto-sync Offline Data</h4>
+                            <p>Automatically sync queued transactions when online</p>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="autoSyncToggle" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    
+                    <div class="settings-item">
+                        <div>
+                            <h4>Live Feed Notifications</h4>
+                            <p>Show desktop notifications for live transactions</p>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="notificationsToggle" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    
+                    <div class="settings-item">
+                        <div>
+                            <h4>Auto-refresh Dashboard</h4>
+                            <p>Refresh dashboard data every 30 seconds</p>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="autoRefreshToggle" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="settings-panel" style="margin-bottom: 20px;">
+                    <h3><i class="fas fa-skull-crossbones"></i> Dangerous Actions</h3>
+                    <p style="color: var(--danger); margin-bottom: 15px;">
+                        <i class="fas fa-exclamation-triangle"></i> 
+                        These actions are permanent and cannot be undone!
+                    </p>
+                    
+                    <div style="display: flex; gap: 15px;">
+                        <button class="btn btn-danger" onclick="deleteAllFingerprints()" style="flex: 1;">
+                            <i class="fas fa-bomb"></i> DELETE ALL FINGERPRINTS
+                        </button>
+                        <button class="btn btn-warning" onclick="clearAllData()" style="flex: 1;">
+                            <i class="fas fa-database"></i> Clear Firebase Data
+                        </button>
+                    </div>
+                    
+                    <div style="margin-top: 15px; padding: 15px; background: rgba(231, 76, 60, 0.1); border-radius: 8px;">
+                        <strong><i class="fas fa-info-circle"></i> What DELETE ALL FINGERPRINTS does:</strong>
+                        <ul style="margin: 10px 0 0 20px; font-size: 14px;">
+                            <li>Deletes ALL fingerprints from sensor memory (1-127)</li>
+                            <li>Clears all student data from ESP32 memory</li>
+                            <li>Clears offline queue and pending commands</li>
+                            <li>Does NOT delete Firebase data (do that manually)</li>
+                            <li>System will restart and show 0/127 on LCD</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="settings-panel">
+                    <h3><i class="fas fa-tasks"></i> Recent Commands</h3>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Command</th>
+                                    <th>Student ID</th>
+                                    <th>Status</th>
+                                    <th>Timestamp</th>
+                                </tr>
+                            </thead>
+                            <tbody id="commandsTable">
+                                <tr>
+                                    <td colspan="4" style="text-align: center; padding: 40px;">
+                                        <i class="fas fa-spinner fa-spin"></i> Loading commands...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+            
+            await loadSystemCommands();
+        }
+        
+        async function loadSystemCommands() {
+            try {
+                const commandsRef = database.ref('commands');
+                const snapshot = await commandsRef.orderByChild('timestamp').limitToLast(10).once('value');
+                const commandsTable = document.getElementById('commandsTable');
+                
+                if (!commandsTable) return;
+                
+                commandsTable.innerHTML = '';
+                
+                if (!snapshot.exists()) {
+                    commandsTable.innerHTML = `
+                        <tr>
+                            <td colspan="4" style="text-align: center; padding: 40px;">
+                                No commands found
+                            </td>
+                        </tr>
+                    `;
+                    return;
+                }
+                
+                const commands = snapshot.val();
+                
+                Object.entries(commands).forEach(([commandId, command]) => {
+                    const row = document.createElement('tr');
+                    
+                    let statusBadge = '';
+                    if (command.status === 'completed') {
+                        statusBadge = '<span class="status-badge online">Completed</span>';
+                    } else if (command.status === 'processing') {
+                        statusBadge = '<span class="status-badge processing">Processing</span>';
+                    } else if (command.status === 'failed') {
+                        statusBadge = '<span class="status-badge offline">Failed</span>';
+                    } else {
+                        statusBadge = '<span class="status-badge processing">Pending</span>';
+                    }
+                    
+                    row.innerHTML = `
+                        <td>${command.command || 'Unknown'}</td>
+                        <td>${command.studentId || 'N/A'}</td>
+                        <td>${statusBadge}</td>
+                        <td>
+                            ${command.timestamp ? formatTimestamp(command.timestamp) : 'Invalid Date'}
+                        </td>
+                    `;
+                    commandsTable.appendChild(row);
+                });
+                
+            } catch (error) {
+                console.error('Error loading commands:', error);
+            }
+        }
+        
+        function clearAllData() {
+            if (confirm('⚠️ DANGER: This will delete ALL data from Firebase!\n\nThis action cannot be undone. Are you absolutely sure?')) {
+                if (confirm('❌ FINAL WARNING: This will permanently delete ALL students, logs, and system data. Type "DELETE ALL" to confirm:')) {
+                    showAlert('Data clearance initiated - This feature requires additional security setup.', 'warning');
+                    // Note: In production, this would require admin authentication
+                }
+            }
+        }
+        
+        // ==================== UTILITY FUNCTIONS ====================
+        function refreshDashboard() {
+            showAlert('Refreshing dashboard...', 'info');
+            loadAllData();
+        }
+        
+        function refreshDashboardSilently() {
+            loadDashboardData().catch(console.error);
+        }
+        
+        function checkDeviceStatus() {
+            database.ref('devices/Conductor').once('value').then(snapshot => {
+                if (snapshot.exists()) {
+                    const deviceData = snapshot.val();
+                    
+                    const statusMessage = `
+                        📊 Device Status:
+                        • Status: ${deviceData.status || 'Unknown'}
+                        • IP: ${deviceData.ip || 'N/A'}
+                        • Last Seen: ${deviceData.lastHeartbeat || 'N/A'}
+                        • Uptime: ${Math.floor((deviceData.uptime || 0) / 60)} minutes
+                        • WiFi: ${deviceData.rssi || 'N/A'} dBm
+                        • Enrollment Mode: ${deviceData.enrollmentMode ? 'TRUE (BUSY)' : 'FALSE (READY)'}
+                        • Deletion Mode: ${deviceData.deletionMode ? 'TRUE (BUSY)' : 'FALSE (READY)'}
+                        • Students: ${deviceData.studentCount || 0}
+                        • Queue: ${deviceData.queueSize || 0}
+                        • Pending Commands: ${deviceData.pendingCommands || 0}
+                    `;
+                    
+                    showAlert(statusMessage, 'info', 10000);
+                    
+                    updateEnrollmentSystemStatus(deviceData);
+                    
+                } else {
+                    showAlert('Device not found in database', 'error');
+                }
+            }).catch(error => {
+                showAlert('Error checking device status', 'error');
+            });
+        }
+
+        async function deleteAllFingerprints() {
+        if (!confirm('🚨 DANGER: DELETE ALL FINGERPRINTS?\n\n⚠️ This will:\n• Delete ALL fingerprints from device memory\n• Clear all local student data\n• Cannot be undone!\n\nType "DELETE ALL" to confirm:')) {
+            return;
+        }
+        
+        const confirmation = prompt('Type "DELETE ALL" (exactly) to proceed:');
+        if (confirmation !== 'DELETE ALL') {
+            showAlert('Deletion cancelled', 'warning');
+            return;
+        }
+        
+        try {
+            showAlert('Sending DELETE ALL command to device...', 'info');
+            
+            const commandRef = database.ref('commands').push();
+            const commandId = commandRef.key;
+            
+            await commandRef.set({
+                command: 'DELETE_ALL',
+                timestamp: new Date().toISOString(),
+                requestedBy: currentUser.username,
+                status: 'pending',
+                warning: 'This will delete ALL fingerprints from device memory'
+            });
+            
+            // Monitor the command
+            const commandRefListener = database.ref(`commands/${commandId}`).on('value', (snapshot) => {
+                if (snapshot.exists()) {
+                    const cmd = snapshot.val();
+                    
+                    if (cmd.status === 'completed') {
+                        showAlert('✅ All fingerprints deleted successfully!', 'success');
+                        database.ref(`commands/${commandId}`).off('value', commandRefListener);
+                        
+                        // Refresh system status
+                        setTimeout(() => {
+                            checkDeviceStatus();
+                            loadStudents();
+                        }, 2000);
+                        
+                    } else if (cmd.status === 'failed') {
+                        showAlert(`❌ Deletion failed: ${cmd.error || 'Unknown error'}`, 'error');
+                        database.ref(`commands/${commandId}`).off('value', commandRefListener);
+                    }
+                }
+            });
+            
+            // Set timeout in case device doesn't respond
+            setTimeout(() => {
+                database.ref(`commands/${commandId}`).off('value', commandRefListener);
+                database.ref(`commands/${commandId}`).update({
+                    status: 'timeout',
+                    completedAt: new Date().toISOString(),
+                    error: 'Device did not respond within 2 minutes'
+                });
+                showAlert('⚠️ Device did not respond. Check physical connection.', 'warning');
+            }, 120000); // 2 minute timeout
+            
+        } catch (error) {
+            console.error('Error sending delete command:', error);
+            showAlert(`Failed to send delete command: ${error.message}`, 'error');
+        }
+    }
+        
+        function ensureDailyLogsFolder() {
+            const today = new Date().toISOString().split('T')[0];
+            const todayLogsRef = database.ref(`logs/${today}/_system_init`);
+            
+            todayLogsRef.set({
+                initialized: true,
+                timestamp: new Date().toISOString(),
+                by: 'system_startup'
+            }).catch(console.error);
+        }
+        
+        function viewStudentDetails(studentId) {
+            showAlert(`View details for ${studentId} - Feature coming soon!`, 'info');
+        }
+        
+        function editStudent(studentId) {
+            showAlert(`Edit student ${studentId} - Feature coming soon!`, 'info');
+        }
+        
+        function viewAttendanceDetails(studentId, date) {
+            showAlert(`Attendance details for ${studentId} on ${date} - Feature coming soon!`, 'info');
+        }
+        
+        function showOfflineQueueDetails() {
+            let content = `
+                <h3><i class="fas fa-database"></i> Offline Queue (${offlineQueue.length})</h3>
+                <div style="max-height: 300px; overflow-y: auto; margin: 20px 0;">
+            `;
+            
+            if (offlineQueue.length === 0) {
+                content += `<p>No pending offline transactions</p>`;
+            } else {
+                offlineQueue.forEach((item, index) => {
+                    content += `
+                        <div style="padding: 10px; border-bottom: 1px solid var(--border);">
+                            <strong>${item.transaction.studentId || 'Unknown'}</strong>
+                            <br><small>${item.transaction.eventType || 'Transaction'}</small>
+                            <br><span style="font-size: 12px; color: var(--gray);">
+                                ${formatTimestamp(item.timestamp)}
+                            </span>
+                        </div>
+                    `;
+                });
+            }
+            
+            content += `</div>`;
+            
+            if (offlineQueue.length > 0 && isOnline) {
+                content += `
+                    <button class="btn btn-primary" onclick="syncOfflineQueue()" style="width: 100%;">
+                        <i class="fas fa-sync"></i> Sync Now
+                    </button>
+                `;
+            }
+            
+            showAlert(content, 'info', 10000);
+        }
+        
+        function downloadReport(reportId) {
+            showAlert(`Downloading report ${reportId} - Feature coming soon!`, 'info');
+        }
+        
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', function() {
+            stopAllFirebaseListeners();
+        });
+        
+        // ==================== GLOBAL EXPORTS ====================
+        window.logout = logout;
+        window.refreshDashboard = refreshDashboard;
+        window.deleteAllFingerprints = deleteAllFingerprints;  // ADD THIS LINE
+        window.toggleLiveFeed = toggleLiveFeed;
+        window.exportStudents = exportStudents;
+        window.exportAttendance = exportAttendance;
+        window.exportAllLogs = exportAllLogs;
+        window.deleteStudentFromDevice = deleteStudentFromDevice;
+        window.deleteStudentFromDatabase = deleteStudentFromDatabase;
+        window.toggleDeleteMenu = toggleDeleteMenu;
+        window.loadDailyLogs = loadDailyLogs;
+        window.showOfflineQueueDetails = showOfflineQueueDetails;
+        window.syncOfflineQueue = syncOfflineQueue;
+        window.enrollStudent = enrollStudent;
+        window.clearEnrollmentForm = clearEnrollmentForm;
+        window.checkDeviceStatus = checkDeviceStatus;
+        window.loadSystemCommands = loadSystemCommands;
+        window.showAddStudentModal = showAddStudentModal;
+        window.closeModal = closeModal;
+        window.showSystemStatus = showSystemStatus;
+        window.generateDailyReport = generateDailyReport;
+        window.generateWeeklyReport = generateWeeklyReport;
+        window.generateMonthlyReport = generateMonthlyReport;
+        window.generateCustomReport = generateCustomReport;
+        
+        console.log('✅ CED System fully loaded and ready');
+    </script>
+</body>
+</html>
