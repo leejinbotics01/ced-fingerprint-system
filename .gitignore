@@ -147,3 +147,34 @@ yarn-error.log*
 .env.development.local
 .env.test.local
 .env.production.local
+# ================================
+# Library files to ignore
+# ================================
+# Library examples
+lib/**/examples/
+lib/**/test/
+lib/**/.github/
+
+# Binary files in libraries
+lib/**/*.zip
+lib/**/*.der
+lib/**/*.pem
+lib/**/*.bin
+lib/**/*.hex
+lib/**/*.elf
+
+# Images in libraries
+lib/**/*.png
+lib/**/*.jpg
+lib/**/*.gif
+lib/**/*.ico
+
+# Documentation files
+lib/**/CHANGELOG.md
+lib/**/ISSUE_TEMPLATE.md
+lib/**/PULL_REQUEST_TEMPLATE.md
+
+# Backup and temp files
+FINGER-01-BKT.txt
+*.backup
+*.tmp
