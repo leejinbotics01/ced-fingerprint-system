@@ -3,3 +3,60 @@
 .vscode/c_cpp_properties.json
 .vscode/launch.json
 .vscode/ipch
+
+# PlatformIO
+.pio/
+.pioenvs/
+.piolibdeps/
+.piolibdeps/
+.pio/build/
+
+# VS Code
+.vscode/
+.vs/
+
+# IDE
+.idea/
+
+# System files
+.DS_Store
+Thumbs.db
+*.bak
+*.tmp
+*.swp
+*.swo
+
+# Compiled files
+*.elf
+*.hex
+*.bin
+*.o
+*.d
+*.lst
+
+# PlatformIO project files (but keep platformio.ini)
+*.map
+*.log
+*.cache
+
+# Windows
+Desktop.ini
+
+# Mac
+._*
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Dependencies
+node_modules/
+
+# Environment variables
+.env
+.env.local
+
+# Backup files
+*~
+*.backup
