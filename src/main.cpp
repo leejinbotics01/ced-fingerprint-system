@@ -18070,7 +18070,7 @@
 // #define DATABASE_URL    "https://fingerprint-attendance-d5a86-default-rtdb.firebaseio.com/" // Firebase database URL
 
 // // Hardware Pin Configuration
-// #define FINGERPRINT_RX_PIN 16  // RX pin for fingerprint sensor (connect to sensor TX)
+// #define FINGERPRINT_RX_PIN 16  // RX pin for fingerprint sensor (connect to sensor TX)                fingerprint system
 // #define FINGERPRINT_TX_PIN 17  // TX pin for fingerprint sensor (connect to sensor RX)
 // #define ENROLL_BUTTON   15     // GPIO pin for enrollment button (with internal pull-up)
 // #define BUZZER_PIN      25     // GPIO pin for buzzer/speaker
@@ -46059,7 +46059,7 @@ Factory reset: Clear SPIFFS by holding button during boot (implement if needed) 
 #define DFPLAYER_TX_PIN 2   // connect player tx to pin  4
 
 // DFPlayer Audio Settings
-#define DFPLAYER_VOLUME 25
+#define DFPLAYER_VOLUME 20
 #define DFPLAYER_DEFAULT_DELAY 1500
 #define DFPLAYER_INIT_DELAY 1000
 #define DFPLAYER_RETRY_COUNT 3
@@ -46502,14 +46502,14 @@ void professionalBeep(BeepType type) {
 void displayWelcomeAnimation() {
     lcd.clear();
     lcdPrintCentered(0, "**********");
-    lcdPrintCentered(1, "LEEJINBOTICS");
+    lcdPrintCentered(1, "C.E.D");
     lcdPrintCentered(2, "Fingerprint System");
     lcdPrintCentered(3, "**********");
     NON_BLOCKING_DELAY(800);
     
     lcd.clear();
     lcdPrintCentered(0, "VOICE PROMPT VERSION");
-    lcdPrintCentered(1, "WITH DFPLAYER");
+    lcdPrintCentered(1, "WITH MP3");
     lcdPrintCentered(2, "SYSTEM");
     lcdPrintCentered(3, "v5.0 PRODUCTION");
     NON_BLOCKING_DELAY(800);
@@ -48763,7 +48763,7 @@ void setup() {
     
     #if DEBUG_MODE
     Serial.println("\n" + String(80, '='));
-    Serial.println("   LEEJINBOTICS FINGERPRINT SYSTEM - PRODUCTION VERSION");
+    Serial.println("   CED FINGERPRINT SYSTEM - PRODUCTION VERSION");
     Serial.println("   STABLE VERSION - NO FLICKER, NO REBOOT ISSUES");
     Serial.println(String(80, '='));
     #endif
@@ -49142,6 +49142,50 @@ void loop() {
     
     delay(10);
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
